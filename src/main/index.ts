@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { GraphRepository } from './database'
 import { LlamaServerManager } from './llamaServer'
-import type { GraphEdgeRecord, GraphNodeRecord, ProjectSnapshot, UiPreferences } from './types'
+import type { GraphEdgeRecord, GraphNodeRecord, NodeType, ProjectSnapshot, TextInputHandle, UiPreferences } from './types'
 
 const repository = new GraphRepository()
 const llamaServer = new LlamaServerManager()
@@ -23,6 +23,7 @@ const defaultUiPreferences: UiPreferences = {
   }
 }
 let uiPreferencesCache: UiPreferences = { ...defaultUiPreferences, generalSections: { ...defaultUiPreferences.generalSections } }
+let hasUnsavedChanges = false
 
 function createWindow(): void {
   const iconPath = join(app.getAppPath(), 'assets', 'icon.ico')
@@ -40,6 +41,25 @@ function createWindow(): void {
   })
   window.setMenuBarVisibility(false)
 
+  let forceClose = false
+  window.on('close', (event) => {
+    if (forceClose || !hasUnsavedChanges) return
+    const choice = dialog.showMessageBoxSync(window, {
+      type: 'warning',
+      buttons: ['Cancel', 'Close Without Saving'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Unsaved Changes',
+      message: 'There are unsaved project changes.',
+      detail: 'Close the app without saving?'
+    })
+    if (choice === 0) {
+      event.preventDefault()
+      return
+    }
+    forceClose = true
+    hasUnsavedChanges = false
+  })
   if (process.env.ELECTRON_RENDERER_URL) {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
@@ -87,6 +107,10 @@ function registerIpc(): void {
     const uiPreferences = await saveUiPreferences(input)
     return { uiPreferences }
   })
+  ipcMain.handle('project:setDirty', async (_event, isDirty: boolean) => {
+    hasUnsavedChanges = isDirty
+    return { ok: true }
+  })
   ipcMain.handle('project:create', async (_event, name: string) => {
     const project = repository.createProject(name)
     return { projects: repository.listProjects(), snapshot: repository.getProjectSnapshot(project.id) }
@@ -116,8 +140,8 @@ function registerIpc(): void {
     repository.deleteNode(id)
     return { snapshot: repository.getProjectSnapshot(node.projectId), projects: repository.listProjects() }
   })
-  ipcMain.handle('edge:create', async (_event, projectId: string, sourceId: string, targetId: string) => {
-    repository.createEdge(projectId, sourceId, targetId)
+  ipcMain.handle('edge:create', async (_event, projectId: string, sourceId: string, targetId: string, sourceHandle: GraphEdgeRecord['sourceHandle'], targetHandle: GraphEdgeRecord['targetHandle']) => {
+    repository.createEdge(projectId, sourceId, targetId, sourceHandle, targetHandle)
     return { snapshot: repository.getProjectSnapshot(projectId), projects: repository.listProjects() }
   })
   ipcMain.handle('edge:delete', async (_event, id: string, projectId: string) => {
@@ -305,34 +329,30 @@ function buildGenerationMeta(input: { completionTokens: number | null; durationM
 }
 function collectContext(nodeId: string, nodes: GraphNodeRecord[], edges: GraphEdgeRecord[]) {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]))
-  const parentMap = new Map<string, string[]>()
-  for (const edge of edges) {
-    const parents = parentMap.get(edge.targetId) ?? []
-    parents.push(edge.sourceId)
-    parentMap.set(edge.targetId, parents)
-  }
-  const ordered = traverseUpstream(nodeId, nodeMap, parentMap, new Set<string>())
   const self = nodeMap.get(nodeId)
-  const upstream = ordered.filter((node) => node.id !== nodeId)
-  const directParents = (parentMap.get(nodeId) ?? []).map((id) => nodeMap.get(id)).filter((value): value is GraphNodeRecord => Boolean(value))
-  const globalInstructionParts = upstream
+  const directTextParents = getHandleParents(nodeId, 'text', edges, nodeMap)
+  const directContextParents = getHandleParents(nodeId, 'context', edges, nodeMap)
+  const directInstructionParents = getHandleParents(nodeId, 'instruction', edges, nodeMap)
+  const upstreamTexts = collectUpstreamTextNodes(directTextParents, edges, nodeMap)
+
+  const globalInstructionParts = directInstructionParents
     .filter((node) => node.type === 'instruction')
     .map((node) => node.content.trim())
     .filter(Boolean)
-  const localInstructionParts = directParents
+  const localInstructionParts = directInstructionParents
     .filter((node) => node.type === 'local_instruction')
     .map((node) => node.content.trim())
     .filter(Boolean)
-  const directParentTexts = directParents
-    .filter((node) => node.type === 'text' && node.content.trim())
+  const directParentTexts = directTextParents
+    .filter((node) => node.content.trim())
     .map((node, index) => `# Direct Parent Text ${index + 1}${node.title ? `: ${node.title}` : ''}
 ${node.content.trim()}`)
-  const upstreamTexts = upstream
-    .filter((node) => node.type === 'text' && node.content.trim())
+  const upstreamTextParts = upstreamTexts
+    .filter((node) => node.content.trim())
     .map((node, index) => `# Upstream Text ${index + 1}${node.title ? `: ${node.title}` : ''}
 ${node.content.trim()}`)
-  const contextParts = upstream
-    .filter((node) => node.type === 'context' && node.content.trim())
+  const contextParts = directContextParents
+    .filter((node) => node.content.trim())
     .map((node, index) => `# Context ${index + 1}${node.title ? `: ${node.title}` : ''}
 ${node.content.trim()}`)
   const targetInfo = self
@@ -346,7 +366,7 @@ Write the final content for this target node.`
     userContext: [
       directParentTexts.length > 0 ? 'Use the direct parent texts below as the highest-priority source material.' : '',
       ...directParentTexts,
-      ...upstreamTexts,
+      ...upstreamTextParts,
       ...contextParts,
       targetInfo
     ].filter(Boolean).join('\n\n') || self?.title || 'Write the final content for the target node.'
@@ -361,18 +381,63 @@ function stripThinkTags(content: string): string {
     .trimStart()
 }
 
-function traverseUpstream(
+function getHandleParents(
+  targetId: string,
+  handle: TextInputHandle,
+  edges: GraphEdgeRecord[],
+  nodeMap: Map<string, GraphNodeRecord>
+): GraphNodeRecord[] {
+  return edges
+    .filter((edge) => edge.targetId === targetId && resolveTargetHandle(edge, nodeMap) === handle)
+    .map((edge) => nodeMap.get(edge.sourceId))
+    .filter((node): node is GraphNodeRecord => Boolean(node))
+}
+
+function collectUpstreamTextNodes(
+  directParents: GraphNodeRecord[],
+  edges: GraphEdgeRecord[],
+  nodeMap: Map<string, GraphNodeRecord>
+): GraphNodeRecord[] {
+  const results: GraphNodeRecord[] = []
+  const visited = new Set<string>()
+
+  for (const parent of directParents) {
+    for (const upstream of traverseTextParents(parent.id, edges, nodeMap, visited)) {
+      results.push(upstream)
+    }
+  }
+
+  return results
+}
+
+function traverseTextParents(
   nodeId: string,
+  edges: GraphEdgeRecord[],
   nodeMap: Map<string, GraphNodeRecord>,
-  parentMap: Map<string, string[]>,
   visited: Set<string>
 ): GraphNodeRecord[] {
-  if (visited.has(nodeId)) return []
-  visited.add(nodeId)
-  const node = nodeMap.get(nodeId)
-  if (!node) return []
-  const parents = (parentMap.get(nodeId) ?? []).flatMap((parentId) => traverseUpstream(parentId, nodeMap, parentMap, visited))
-  return [...parents, node]
+  const results: GraphNodeRecord[] = []
+  for (const edge of edges) {
+    if (edge.targetId !== nodeId || resolveTargetHandle(edge, nodeMap) !== 'text') continue
+    const parent = nodeMap.get(edge.sourceId)
+    if (!parent || parent.type !== 'text' || visited.has(parent.id)) continue
+    visited.add(parent.id)
+    results.push(parent)
+    results.push(...traverseTextParents(parent.id, edges, nodeMap, visited))
+  }
+  return results
+}
+
+function resolveTargetHandle(edge: GraphEdgeRecord, nodeMap: Map<string, GraphNodeRecord>): TextInputHandle | null {
+  if (edge.targetHandle) return edge.targetHandle
+  const sourceType = nodeMap.get(edge.sourceId)?.type
+  return sourceType ? defaultTargetHandleForNodeType(sourceType) : null
+}
+
+function defaultTargetHandleForNodeType(type: NodeType): TextInputHandle | null {
+  if (type === 'text') return 'text'
+  if (type === 'context') return 'context'
+  return 'instruction'
 }
 
 async function loadUiPreferences(): Promise<UiPreferences> {

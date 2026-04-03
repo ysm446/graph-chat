@@ -31,6 +31,8 @@ type EdgeRow = {
   project_id: string
   source_id: string
   target_id: string
+  source_handle: 'output' | null
+  target_handle: 'text' | 'context' | 'instruction' | null
 }
 
 type ProjectRow = {
@@ -99,6 +101,8 @@ export class GraphRepository {
         project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
         source_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
         target_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+        source_handle TEXT,
+        target_handle TEXT,
         UNIQUE(source_id, target_id)
       );
       CREATE TABLE IF NOT EXISTS node_positions (
@@ -109,6 +113,7 @@ export class GraphRepository {
     `)
     this.ensureNodeColumns()
     this.ensureNodePositionColumns()
+    this.ensureEdgeHandleColumns()
     this.ensureNodeTypeSupport()
   }
 
@@ -165,7 +170,7 @@ export class GraphRepository {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       const insertPosition = this.db.prepare('INSERT INTO node_positions (node_id, x, y, width, height) VALUES (?, ?, ?, ?, ?)')
-      const insertEdge = this.db.prepare('INSERT INTO edges (id, project_id, source_id, target_id) VALUES (?, ?, ?, ?)')
+      const insertEdge = this.db.prepare('INSERT INTO edges (id, project_id, source_id, target_id, source_handle, target_handle) VALUES (?, ?, ?, ?, ?, ?)')
 
       for (const node of snapshot.nodes) {
         insertNode.run(
@@ -185,7 +190,7 @@ export class GraphRepository {
       }
 
       for (const edge of snapshot.edges) {
-        insertEdge.run(edge.id, snapshot.project.id, edge.sourceId, edge.targetId)
+        insertEdge.run(edge.id, snapshot.project.id, edge.sourceId, edge.targetId, edge.sourceHandle, edge.targetHandle)
       }
     })()
 
@@ -266,7 +271,7 @@ export class GraphRepository {
     })()
   }
 
-  createEdge(projectId: string, sourceId: string, targetId: string): GraphEdgeRecord {
+  createEdge(projectId: string, sourceId: string, targetId: string, sourceHandle: GraphEdgeRecord['sourceHandle'] = null, targetHandle: GraphEdgeRecord['targetHandle'] = null): GraphEdgeRecord {
     if (sourceId === targetId) {
       throw new Error('A node cannot connect to itself.')
     }
@@ -279,9 +284,9 @@ export class GraphRepository {
       throw new Error('Source or target node was not found.')
     }
     const id = randomUUID()
-    this.db.prepare('INSERT INTO edges (id, project_id, source_id, target_id) VALUES (?, ?, ?, ?)').run(id, projectId, sourceId, targetId)
+    this.db.prepare('INSERT INTO edges (id, project_id, source_id, target_id, source_handle, target_handle) VALUES (?, ?, ?, ?, ?, ?)').run(id, projectId, sourceId, targetId, sourceHandle, targetHandle)
     this.touchProject(projectId)
-    return { id, projectId, sourceId, targetId }
+    return { id, projectId, sourceId, targetId, sourceHandle, targetHandle }
   }
 
   deleteEdge(id: string): void {
@@ -326,13 +331,15 @@ export class GraphRepository {
 
   listEdges(projectId: string): GraphEdgeRecord[] {
     const rows = this.db
-      .prepare('SELECT id, project_id, source_id, target_id FROM edges WHERE project_id = ? ORDER BY rowid ASC')
+      .prepare('SELECT id, project_id, source_id, target_id, source_handle, target_handle FROM edges WHERE project_id = ? ORDER BY rowid ASC')
       .all(projectId) as EdgeRow[]
     return rows.map((row) => ({
       id: row.id,
       projectId: row.project_id,
       sourceId: row.source_id,
-      targetId: row.target_id
+      targetId: row.target_id,
+      sourceHandle: row.source_handle,
+      targetHandle: row.target_handle
     }))
   }
 
@@ -366,6 +373,16 @@ export class GraphRepository {
     }
   }
 
+  private ensureEdgeHandleColumns(): void {
+    const columns = this.db.prepare('PRAGMA table_info(edges)').all() as Array<{ name: string }>
+    const names = new Set(columns.map((column) => column.name))
+    if (!names.has('source_handle')) {
+      this.db.exec('ALTER TABLE edges ADD COLUMN source_handle TEXT;')
+    }
+    if (!names.has('target_handle')) {
+      this.db.exec('ALTER TABLE edges ADD COLUMN target_handle TEXT;')
+    }
+  }
   private ensureNodeTypeSupport(): void {
     const row = this.db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'nodes'").get() as { sql: string } | undefined
     if (row?.sql?.includes("'local_instruction'")) {
@@ -396,6 +413,8 @@ export class GraphRepository {
           project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
           source_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
           target_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+          source_handle TEXT,
+          target_handle TEXT,
           UNIQUE(source_id, target_id)
         );
         CREATE TABLE node_positions (
@@ -407,8 +426,8 @@ export class GraphRepository {
         );
         INSERT INTO nodes (id, project_id, type, title, content, instruction, model, is_generated, generation_meta, created_at, updated_at)
         SELECT id, project_id, type, title, content, instruction, model, is_generated, generation_meta, created_at, updated_at FROM nodes_legacy;
-        INSERT INTO edges (id, project_id, source_id, target_id)
-        SELECT id, project_id, source_id, target_id FROM edges_legacy;
+        INSERT INTO edges (id, project_id, source_id, target_id, source_handle, target_handle)
+        SELECT id, project_id, source_id, target_id, source_handle, target_handle FROM edges_legacy;
         INSERT INTO node_positions (node_id, x, y, width, height)
         SELECT node_id, x, y, width, height FROM node_positions_legacy;
         DROP TABLE node_positions_legacy;

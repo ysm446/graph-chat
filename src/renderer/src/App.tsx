@@ -18,7 +18,7 @@ import {
   type OnNodesChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import type { AppSettings, GraphEdgeRecord, GraphNodeRecord, ModelOption, NodeType, ProjectRecord, ProjectSnapshot, UiPreferences } from '../../main/types'
+import type { AppSettings, GraphEdgeRecord, GraphNodeRecord, ModelOption, NodeType, ProjectRecord, ProjectSnapshot, TextInputHandle, UiPreferences } from '../../main/types'
 import type { ReaderState } from './types'
 
 type AppNodeData = {
@@ -178,13 +178,7 @@ function GraphChatApp() {
   }, [])
 
   useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!isProjectDirty) return
-      event.preventDefault()
-      event.returnValue = ''
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    void window.graphChat.setProjectDirty(isProjectDirty)
   }, [isProjectDirty])
 
   useEffect(() => {
@@ -230,7 +224,7 @@ function GraphChatApp() {
         selected: edge.id === selectedEdgeId,
         style: edge.id === selectedEdgeId
           ? { strokeWidth: 3.5, stroke: '#7c5af7' }
-          : { strokeWidth: 2.6, stroke: '#3a3f50' }
+          : edgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
       }))
     )
   }, [selectedEdgeId, setEdges])
@@ -258,9 +252,21 @@ function GraphChatApp() {
   }
 
   function applySnapshot(snapshot: ProjectSnapshot) {
-    snapshotRef.current = snapshot
-    setActiveProjectId(snapshot.project.id)
-    setNodes(snapshot.nodes.map((node) => ({
+    const previousEdgeMap = new Map((snapshotRef.current?.edges ?? []).map((edge) => [edge.id, edge]))
+    const normalizedSnapshot: ProjectSnapshot = {
+      ...snapshot,
+      edges: snapshot.edges.map((edge) => {
+        const previous = previousEdgeMap.get(edge.id)
+        return {
+          ...edge,
+          sourceHandle: edge.sourceHandle ?? previous?.sourceHandle ?? 'output',
+          targetHandle: edge.targetHandle ?? previous?.targetHandle ?? resolveTargetHandleForEdge(edge, snapshot.nodes)
+        }
+      })
+    }
+    snapshotRef.current = normalizedSnapshot
+    setActiveProjectId(normalizedSnapshot.project.id)
+    setNodes(normalizedSnapshot.nodes.map((node) => ({
       id: node.id,
       type: 'graphNode',
       position: node.position,
@@ -284,19 +290,21 @@ function GraphChatApp() {
         onResize: handleResize
       }
     })))
-    setEdges(snapshot.edges.map((edge) => ({
+    setEdges(normalizedSnapshot.edges.map((edge) => ({
       id: edge.id,
       source: edge.sourceId,
       target: edge.targetId,
+      sourceHandle: edge.sourceHandle ?? 'output',
+      targetHandle: edge.targetHandle,
       zIndex: 0,
       selected: edge.id === selectedEdgeId,
       animated: false,
       style: edge.id === selectedEdgeId
         ? { strokeWidth: 3.5, stroke: '#7c5af7' }
-        : { strokeWidth: 2.6, stroke: '#3a3f50' }
+        : edgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
     })))
     setSelectedNodeId((current) => snapshot.nodes.some((node) => node.id === current) ? current : snapshot.nodes[0]?.id ?? null)
-    setSelectedEdgeId((current) => snapshot.edges.some((edge) => edge.id === current) ? current : null)
+    setSelectedEdgeId((current) => normalizedSnapshot.edges.some((edge) => edge.id === current) ? current : null)
   }
 
   async function switchProject(projectId: string) {
@@ -426,11 +434,26 @@ function GraphChatApp() {
       if (connection.source === connection.target) {
         throw new Error('A node cannot connect to itself.')
       }
+      const sourceNode = snapshot.nodes.find((node) => node.id === connection.source)
+      const targetNode = snapshot.nodes.find((node) => node.id === connection.target)
+      const targetHandle = (connection.targetHandle as TextInputHandle | null) ?? (sourceNode ? defaultTargetHandleForNodeType(sourceNode.type) : null)
+      if (!sourceNode || !targetNode) {
+        throw new Error('Source or target node was not found.')
+      }
+      if (targetNode.type !== 'text' || !targetHandle) {
+        throw new Error('Connect to one of the text node input handles.')
+      }
+      const expectedHandle = defaultTargetHandleForNodeType(sourceNode.type)
+      if (expectedHandle !== targetHandle) {
+        throw new Error(`${displayNodeTypeLabel(sourceNode.type)} nodes connect to the ${targetHandleLabel(expectedHandle)} input.`)
+      }
       const nextEdge: GraphEdgeRecord = {
         id: crypto.randomUUID(),
         projectId: activeProjectId,
         sourceId: connection.source,
-        targetId: connection.target
+        targetId: connection.target,
+        sourceHandle: 'output',
+        targetHandle
       }
       if (wouldCreateCycle(connection.source, connection.target, snapshot.edges)) {
         throw new Error('This connection would create a cycle.')
@@ -443,6 +466,7 @@ function GraphChatApp() {
       setError(err instanceof Error ? err.message : String(err))
     }
   }
+
 
   async function handleGenerate(nodeId: string) {
     if (generation || !activeProjectId || !snapshotRef.current) return
@@ -1024,7 +1048,7 @@ function GraphChatApp() {
           onEdgeDoubleClick={(_, edge) => {
             void removeEdge(edge.id)
           }}
-          defaultEdgeOptions={{ style: { strokeWidth: 2.6, stroke: '#3a3f50' }, interactionWidth: 28 }}
+          defaultEdgeOptions={{ style: edgeStyleForHandle('text'), interactionWidth: 28 }}
         >
           {isMiniMapVisible && <MiniMap pannable zoomable style={{ backgroundColor: '#181b23' }} nodeColor={(node) => getMiniMapNodeColor(node as Node<AppNodeData>)} />}
           <Background gap={20} size={1.4} color="#394154" />
@@ -1128,8 +1152,17 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
       >
         <div className="h-full w-full rounded-md bg-white" />
       </NodeResizeControl>
-      {node.type === 'text' && <Handle type="target" position={Position.Left} className="!h-4 !w-4 !border-2 !border-[var(--text-faint)] !bg-[var(--text)]" />}
-      <Handle type="source" position={Position.Right} className="!h-4 !w-4 !border-2 !border-[var(--text-faint)] !bg-[var(--text)]" />
+      {node.type === 'text' && (
+        <>
+          <Handle id="text" type="target" position={Position.Left} style={{ top: '28%' }} className="!h-5 !w-5 !border-2 !border-[var(--text-faint)] !bg-[var(--text)]" />
+          <Handle id="context" type="target" position={Position.Left} style={{ top: '50%' }} className="!h-5 !w-5 !border-2 !border-[rgb(111,126,255)] !bg-[rgb(111,126,255)]" />
+          <Handle id="instruction" type="target" position={Position.Left} style={{ top: '72%' }} className="!h-5 !w-5 !border-2 !border-[rgb(201,108,210)] !bg-[rgb(201,108,210)]" />
+          <div className="pointer-events-none absolute -left-6 top-[22%] text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--text-dim)]">T</div>
+          <div className="pointer-events-none absolute -left-6 top-[44%] text-[10px] font-medium uppercase tracking-[0.2em] text-[rgb(162,170,255)]">C</div>
+          <div className="pointer-events-none absolute -left-6 top-[66%] text-[10px] font-medium uppercase tracking-[0.2em] text-[rgb(221,156,221)]">I</div>
+        </>
+      )}
+      <Handle id="output" type="source" position={Position.Right} className="!h-5 !w-5 !border-2 !border-[var(--text-faint)] !bg-[var(--text)]" />
       <div className="flex h-full flex-col">
         <div className="mb-2 flex items-start justify-between gap-2">
           <button className="nodrag nopan text-left" onClick={() => data.onSelect(node.id)}>
@@ -1589,17 +1622,28 @@ function formatModelSize(sizeBytes: number): string {
 
 function collectReaderText(nodeId: string, nodes: GraphNodeRecord[], edges: GraphEdgeRecord[]): string {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]))
-  const parentMap = new Map<string, string[]>()
-  for (const edge of edges) {
-    const parents = parentMap.get(edge.targetId) ?? []
-    parents.push(edge.sourceId)
-    parentMap.set(edge.targetId, parents)
-  }
-  return traverse(nodeId, nodeMap, parentMap, new Set<string>())
-    .filter((node) => node.type === 'text')
+  return collectReaderTextUpstream(nodeId, edges, nodeMap, new Set<string>())
     .map((node) => node.content.trim())
     .filter(Boolean)
     .join('\n\n')
+}
+
+function collectReaderTextUpstream(
+  nodeId: string,
+  edges: GraphEdgeRecord[],
+  nodeMap: Map<string, GraphNodeRecord>,
+  visited: Set<string>
+): GraphNodeRecord[] {
+  const results: GraphNodeRecord[] = []
+  for (const edge of edges) {
+    if (edge.targetId !== nodeId || resolveTargetHandleForEdge(edge, nodeMap) !== 'text') continue
+    const parent = nodeMap.get(edge.sourceId)
+    if (!parent || parent.type !== 'text' || visited.has(parent.id)) continue
+    visited.add(parent.id)
+    results.push(...collectReaderTextUpstream(parent.id, edges, nodeMap, visited))
+    results.push(parent)
+  }
+  return results
 }
 
 function wouldCreateCycle(sourceId: string, targetId: string, edges: GraphEdgeRecord[]): boolean {
@@ -1626,13 +1670,32 @@ function wouldCreateCycle(sourceId: string, targetId: string, edges: GraphEdgeRe
   return false
 }
 
-function traverse(nodeId: string, nodeMap: Map<string, GraphNodeRecord>, parentMap: Map<string, string[]>, visited: Set<string>): GraphNodeRecord[] {
-  if (visited.has(nodeId)) return []
-  visited.add(nodeId)
-  const node = nodeMap.get(nodeId)
-  if (!node) return []
-  const parents = (parentMap.get(nodeId) ?? []).flatMap((parentId) => traverse(parentId, nodeMap, parentMap, visited))
-  return [...parents, node]
+function resolveTargetHandleForEdge(edge: GraphEdgeRecord, nodes: GraphNodeRecord[] | Map<string, GraphNodeRecord>): TextInputHandle | null {
+  if (edge.targetHandle) return edge.targetHandle
+  const nodeMap = nodes instanceof Map ? nodes : new Map(nodes.map((node) => [node.id, node]))
+  const sourceType = nodeMap.get(edge.sourceId)?.type
+  return sourceType ? defaultTargetHandleForNodeType(sourceType) : null
+}
+
+function defaultTargetHandleForNodeType(type: NodeType): TextInputHandle {
+  if (type === 'text') return 'text'
+  if (type === 'context') return 'context'
+  return 'instruction'
+}
+
+function targetHandleLabel(handle: TextInputHandle): string {
+  if (handle === 'text') return 'Text'
+  if (handle === 'context') return 'Context'
+  return 'Instruction'
+}
+function edgeStyleForHandle(handle: TextInputHandle | null) {
+  if (handle === 'context') {
+    return { strokeWidth: 2.6, stroke: '#6170d8', opacity: 0.84 }
+  }
+  if (handle === 'instruction') {
+    return { strokeWidth: 2.6, stroke: '#a267c8', opacity: 0.84 }
+  }
+  return { strokeWidth: 2.6, stroke: '#6a728f', opacity: 0.84 }
 }
 
 export default App

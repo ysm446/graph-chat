@@ -1,4 +1,4 @@
-import type { AppSettings, GraphNodeRecord, ProjectRecord, ProjectSnapshot, UiPreferences } from '../main/types'
+import type { AppSettings, GraphEdgeRecord, GraphNodeRecord, ProjectRecord, ProjectSnapshot, UiPreferences } from '../main/types'
 
 export interface GraphChatApi {
   bootstrap(): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot; settings: AppSettings; uiPreferences: UiPreferences }>
@@ -7,6 +7,7 @@ export interface GraphChatApi {
   ejectModel(): Promise<{ settings: AppSettings }>
   updateSettings(input: { contextLength?: number }): Promise<{ settings: AppSettings }>
   savePreferences(input: Partial<UiPreferences>): Promise<{ uiPreferences: UiPreferences }>
+  setProjectDirty(isDirty: boolean): Promise<{ ok: true }>
   createProject(name: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
   renameProject(id: string, name: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
   deleteProject(id: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
@@ -36,7 +37,7 @@ export interface GraphChatApi {
     generationMeta?: GraphNodeRecord['generationMeta']
   }): Promise<GraphNodeRecord>
   deleteNode(id: string): Promise<{ snapshot: ProjectSnapshot; projects: ProjectRecord[] }>
-  createEdge(projectId: string, sourceId: string, targetId: string): Promise<{ snapshot: ProjectSnapshot; projects: ProjectRecord[] }>
+  createEdge(projectId: string, sourceId: string, targetId: string, sourceHandle: GraphEdgeRecord['sourceHandle'], targetHandle: GraphEdgeRecord['targetHandle']): Promise<{ snapshot: ProjectSnapshot; projects: ProjectRecord[] }>
   deleteEdge(id: string, projectId: string): Promise<{ snapshot: ProjectSnapshot; projects: ProjectRecord[] }>
   startGeneration(payload: { projectId: string; sourceNodeId: string; snapshot?: ProjectSnapshot }): Promise<{
     generationId: string

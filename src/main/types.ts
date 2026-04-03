@@ -1,4 +1,6 @@
 export type NodeType = 'text' | 'context' | 'instruction' | 'local_instruction'
+export type TextInputHandle = 'text' | 'context' | 'instruction'
+export type NodeOutputHandle = 'output'
 
 export interface ProjectRecord {
   id: string
@@ -41,6 +43,8 @@ export interface GraphEdgeRecord {
   projectId: string
   sourceId: string
   targetId: string
+  sourceHandle: NodeOutputHandle | null
+  targetHandle: TextInputHandle | null
 }
 
 export interface ProjectSnapshot {
