@@ -227,7 +227,7 @@ function GraphChatApp() {
         ...edge,
         selected: edge.id === selectedEdgeId,
         style: edge.id === selectedEdgeId
-          ? { strokeWidth: 3.5, stroke: '#7c5af7' }
+          ? selectedEdgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
           : edgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
       }))
     )
@@ -304,7 +304,7 @@ function GraphChatApp() {
       selected: edge.id === selectedEdgeId,
       animated: false,
       style: edge.id === selectedEdgeId
-        ? { strokeWidth: 3.5, stroke: '#7c5af7' }
+        ? selectedEdgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
         : edgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
     })))
     setSelectedNodeId((current) => snapshot.nodes.some((node) => node.id === current) ? current : snapshot.nodes[0]?.id ?? null)
@@ -1953,6 +1953,16 @@ function edgeStyleForHandle(handle: TextInputHandle | null) {
     return { strokeWidth: 2.6, stroke: '#a267c8', opacity: 0.84 }
   }
   return { strokeWidth: 2.6, stroke: '#6a728f', opacity: 0.84 }
+}
+
+function selectedEdgeStyleForHandle(handle: TextInputHandle | null) {
+  if (handle === 'context') {
+    return { strokeWidth: 3.5, stroke: '#7b89f0', opacity: 1 }
+  }
+  if (handle === 'instruction') {
+    return { strokeWidth: 3.5, stroke: '#bf79df', opacity: 1 }
+  }
+  return { strokeWidth: 3.5, stroke: '#8b95b8', opacity: 1 }
 }
 
 export default App
