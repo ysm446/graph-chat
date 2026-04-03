@@ -152,6 +152,22 @@ function GraphChatApp() {
   const selectedNode = useMemo(() => snapshotRef.current?.nodes.find((node) => node.id === selectedNodeId) ?? null, [selectedNodeId, nodes])
   const nodeTypes = useMemo(() => ({ graphNode: GraphNodeCard }), [])
 
+  function selectNode(nodeId: string | null) {
+    setSelectedNodeId(nodeId)
+    if (nodeId) {
+      setSelectedEdgeId(null)
+    }
+    setNodes((current) =>
+      current.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          isSelected: node.id === nodeId
+        }
+      }))
+    )
+  }
+
   function applySnapshot(snapshot: ProjectSnapshot) {
     snapshotRef.current = snapshot
     setActiveProjectId(snapshot.project.id)
@@ -163,7 +179,7 @@ function GraphChatApp() {
       data: {
         graphNode: node,
         isSelected: node.id === selectedNodeId,
-        onSelect: setSelectedNodeId,
+        onSelect: selectNode,
         onGenerate: handleGenerate,
         onOpenReader: openReader,
         onResize: handleResize
@@ -240,7 +256,7 @@ function GraphChatApp() {
     })
     setProjects(result.projects)
     applySnapshot(result.snapshot)
-    setSelectedNodeId(result.node.id)
+    selectNode(result.node.id)
     setSelectedEdgeId(null)
     setCanvasMenu(null)
     setNodeMenu(null)
@@ -265,6 +281,7 @@ function GraphChatApp() {
   async function handleResize(nodeId: string, input: { position: { x: number; y: number }; size: { width: number; height: number } }) {
     const graphNode = snapshotRef.current?.nodes.find((node) => node.id === nodeId)
     if (!graphNode) return
+    selectNode(nodeId)
     const updated = { ...graphNode, position: input.position, size: input.size }
     mutateLocalNode(updated)
     await persistNode(updated)
@@ -277,7 +294,7 @@ function GraphChatApp() {
       const result = await window.graphChat.createEdge(activeProjectId, connection.source, connection.target)
       setProjects(result.projects)
       applySnapshot(result.snapshot)
-      setSelectedNodeId(null)
+      selectNode(null)
       setStatus('Connection added')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -294,7 +311,7 @@ function GraphChatApp() {
       applySnapshot(result.snapshot)
       const created = result.snapshot.nodes.find((node) => node.id === result.targetNodeId)
       if (created) {
-        setSelectedNodeId(created.id)
+        selectNode(created.id)
         setGeneration({ generationId: result.generationId, nodeId: created.id })
       }
       setIsModelLoaded(true)
@@ -380,7 +397,7 @@ function GraphChatApp() {
     })
     setProjects(result.projects)
     applySnapshot(result.snapshot)
-    setSelectedNodeId(result.node.id)
+    selectNode(result.node.id)
     setNodeMenu(null)
     setStatus('Node duplicated')
   }
@@ -537,7 +554,7 @@ function GraphChatApp() {
       flowY: position.y
     })
     setNodeMenu(null)
-    setSelectedNodeId(null)
+    selectNode(null)
     setSelectedEdgeId(null)
   }
 
@@ -545,7 +562,7 @@ function GraphChatApp() {
     event.preventDefault()
     event.stopPropagation()
     const bounds = mainRef.current?.getBoundingClientRect()
-    setSelectedNodeId(nodeId)
+    selectNode(nodeId)
     setSelectedEdgeId(null)
     setCanvasMenu(null)
     setNodeMenu({
@@ -791,14 +808,14 @@ function GraphChatApp() {
             onPaneClick={() => {
               setCanvasMenu(null)
               setNodeMenu(null)
-              setSelectedNodeId(null)
+              selectNode(null)
               setSelectedEdgeId(null)
             }}
           onNodesChange={handleNodeChanges}
           onEdgesChange={handleEdgeChanges}
           onConnect={(connection) => void onConnect(connection)}
           onNodeClick={(_, node) => {
-            setSelectedNodeId(node.id)
+            selectNode(node.id)
             setSelectedEdgeId(null)
             setCanvasMenu(null)
             setNodeMenu(null)
@@ -807,7 +824,7 @@ function GraphChatApp() {
             openNodeMenu(event, node.id)
           }}
           onEdgeClick={(_, edge) => {
-            setSelectedNodeId(null)
+            selectNode(null)
             setSelectedEdgeId(edge.id)
             setCanvasMenu(null)
             setNodeMenu(null)
@@ -882,14 +899,15 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
   } as const
 
   return (
-    <div className={`relative h-full w-full rounded-3xl border-2 px-4 py-3 shadow-lg shadow-black/30 transition ${colors[node.type]} ${data.isSelected ? 'ring-4 ring-[var(--accent-border)]' : ''}`}>
+    <div className={`relative h-full w-full rounded-3xl border-2 px-4 py-3 shadow-lg shadow-black/30 transition ${colors[node.type]} ${data.isSelected ? 'ring-4 ring-[var(--accent-border)]' : ''}`} onMouseDown={() => data.onSelect(node.id)}>
       <NodeResizeControl
         position="bottom-right"
-        className={`${data.isSelected ? 'opacity-100' : 'opacity-0 pointer-events-none'} !h-4 !w-4 !rounded-md !border !border-[var(--text-faint)] !bg-[var(--text)] shadow`}
+        className={`${data.isSelected ? 'opacity-100' : 'opacity-0 pointer-events-none'} !h-3 !w-3 !rounded-[6px] !border !border-[var(--text-faint)] !bg-[var(--text)] shadow`}
         minWidth={220}
         minHeight={140}
         color="#44403c"
         onResizeEnd={(_event, params) => {
+          data.onSelect(node.id)
           data.onResize(node.id, {
             position: { x: params.x, y: params.y },
             size: { width: params.width, height: params.height }
@@ -908,7 +926,7 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
           </button>
           {node.type === 'text' && <button className="nodrag nopan rounded-full bg-[var(--accent)] px-3 py-1 text-xs font-medium text-white hover:bg-[var(--accent-hover)]" onClick={() => data.onGenerate(node.id)}>逕滓・ -&gt;</button>}
         </div>
-        <div className="flex-1 overflow-hidden whitespace-pre-wrap text-sm leading-6 text-[var(--text)]">{node.content || 'No content yet.'}</div>
+        <div className="node-scrollbar flex-1 overflow-y-auto whitespace-pre-wrap pr-1 text-sm leading-6 text-[var(--text)]">{node.content || 'No content yet.'}</div>
         <div className="mt-3 flex justify-between text-xs text-[var(--text-dim)]">
           <button className="nodrag nopan" onClick={() => data.onOpenReader(node.id)}>Reader</button>
           <span>{Math.round(node.size.width)} x {Math.round(node.size.height)}</span>

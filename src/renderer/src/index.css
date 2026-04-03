@@ -105,6 +105,29 @@ textarea {
   background: #40465b;
 }
 
+.node-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3f50 transparent;
+}
+
+.node-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.node-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.node-scrollbar::-webkit-scrollbar-thumb {
+  background: #3a3f50;
+  border-radius: 999px;
+  border: 2px solid transparent;
+}
+
+.node-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4a5166;
+}
+
 .graph-slider {
   height: 18px;
   appearance: none;
