@@ -1,14 +1,26 @@
 ﻿import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { GraphRepository } from './database'
 import { LlamaServerManager } from './llamaServer'
-import type { GraphEdgeRecord, GraphNodeRecord } from './types'
+import type { GraphEdgeRecord, GraphNodeRecord, UiPreferences } from './types'
 
 const repository = new GraphRepository()
 const llamaServer = new LlamaServerManager()
 const generationControllers = new Map<string, AbortController>()
+const preferencesPath = join(app.getPath('userData'), 'preferences.json')
+const defaultUiPreferences: UiPreferences = {
+  contextLength: 32768,
+  isSidebarOpen: true,
+  isInspectorOpen: true,
+  isMiniMapVisible: true,
+  generalSections: {
+    context: true,
+    interface: true
+  }
+}
+let uiPreferencesCache: UiPreferences = { ...defaultUiPreferences, generalSections: { ...defaultUiPreferences.generalSections } }
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -46,8 +58,10 @@ app.on('window-all-closed', async () => {
 
 function registerIpc(): void {
   ipcMain.handle('bootstrap', async () => {
+    uiPreferencesCache = await loadUiPreferences()
+    const settings = await llamaServer.updateSettings({ contextLength: uiPreferencesCache.contextLength })
     const snapshot = repository.ensureDefaultProject()
-    return { projects: repository.listProjects(), snapshot, settings: llamaServer.getSettings() }
+    return { projects: repository.listProjects(), snapshot, settings, uiPreferences: uiPreferencesCache }
   })
   ipcMain.handle('models:list', async () => llamaServer.getSettings())
   ipcMain.handle('models:select', async (_event, modelPath: string) => {
@@ -60,7 +74,14 @@ function registerIpc(): void {
   })
   ipcMain.handle('settings:update', async (_event, input: { contextLength?: number }) => {
     const settings = await llamaServer.updateSettings(input)
+    if (input.contextLength !== undefined) {
+      uiPreferencesCache = await saveUiPreferences({ contextLength: settings.contextLength })
+    }
     return { settings }
+  })
+  ipcMain.handle('preferences:save', async (_event, input: Partial<UiPreferences>) => {
+    const uiPreferences = await saveUiPreferences(input)
+    return { uiPreferences }
   })
   ipcMain.handle('project:create', async (_event, name: string) => {
     const project = repository.createProject(name)
@@ -310,4 +331,31 @@ function traverseUpstream(
   return [...parents, node]
 }
 
+async function loadUiPreferences(): Promise<UiPreferences> {
+  try {
+    const raw = await readFile(preferencesPath, 'utf8')
+    const parsed = JSON.parse(raw) as Partial<UiPreferences>
+    return mergeUiPreferences(parsed)
+  } catch {
+    return { ...defaultUiPreferences, generalSections: { ...defaultUiPreferences.generalSections } }
+  }
+}
 
+async function saveUiPreferences(input: Partial<UiPreferences>): Promise<UiPreferences> {
+  uiPreferencesCache = mergeUiPreferences({ ...uiPreferencesCache, ...input })
+  await writeFile(preferencesPath, JSON.stringify(uiPreferencesCache, null, 2), 'utf8')
+  return uiPreferencesCache
+}
+
+function mergeUiPreferences(input: Partial<UiPreferences>): UiPreferences {
+  return {
+    contextLength: input.contextLength ?? defaultUiPreferences.contextLength,
+    isSidebarOpen: input.isSidebarOpen ?? defaultUiPreferences.isSidebarOpen,
+    isInspectorOpen: input.isInspectorOpen ?? defaultUiPreferences.isInspectorOpen,
+    isMiniMapVisible: input.isMiniMapVisible ?? defaultUiPreferences.isMiniMapVisible,
+    generalSections: {
+      context: input.generalSections?.context ?? defaultUiPreferences.generalSections.context,
+      interface: input.generalSections?.interface ?? defaultUiPreferences.generalSections.interface
+    }
+  }
+}

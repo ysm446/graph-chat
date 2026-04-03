@@ -66,4 +66,13 @@ export interface AppSettings {
   resolvedServerPath: string
 }
 
-
+export interface UiPreferences {
+  contextLength: number
+  isSidebarOpen: boolean
+  isInspectorOpen: boolean
+  isMiniMapVisible: boolean
+  generalSections: {
+    context: boolean
+    interface: boolean
+  }
+}

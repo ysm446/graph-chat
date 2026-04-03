@@ -18,7 +18,7 @@ import {
   type OnNodesChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import type { AppSettings, GraphEdgeRecord, GraphNodeRecord, ModelOption, NodeType, ProjectRecord, ProjectSnapshot } from '../../main/types'
+import type { AppSettings, GraphEdgeRecord, GraphNodeRecord, ModelOption, NodeType, ProjectRecord, ProjectSnapshot, UiPreferences } from '../../main/types'
 import type { ReaderState } from './types'
 
 type AppNodeData = {
@@ -91,19 +91,36 @@ function GraphChatApp() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const snapshotRef = useRef<ProjectSnapshot | null>(null)
   const copiedNodeIdRef = useRef<string | null>(null)
+  const hasLoadedPreferencesRef = useRef(false)
 
   useEffect(() => {
-    void window.graphChat.bootstrap().then(({ projects, snapshot, settings }) => {
+    void window.graphChat.bootstrap().then(({ projects, snapshot, settings, uiPreferences }) => {
       setProjects(projects)
       setSettings(settings)
+      setIsSidebarOpen(uiPreferences.isSidebarOpen)
+      setIsInspectorOpen(uiPreferences.isInspectorOpen)
+      setIsMiniMapVisible(uiPreferences.isMiniMapVisible)
+      setGeneralSections(uiPreferences.generalSections)
       setActiveProjectId(snapshot.project.id)
       applySnapshot(snapshot)
+      hasLoadedPreferencesRef.current = true
       setStatus('Ready')
     }).catch((err) => {
       setError(err instanceof Error ? err.message : String(err))
       setStatus('Failed to load')
     })
   }, [])
+
+  useEffect(() => {
+    if (!hasLoadedPreferencesRef.current) return
+    const payload: Partial<UiPreferences> = {
+      isSidebarOpen,
+      isInspectorOpen,
+      isMiniMapVisible,
+      generalSections
+    }
+    void window.graphChat.savePreferences(payload)
+  }, [isSidebarOpen, isInspectorOpen, isMiniMapVisible, generalSections])
 
   useEffect(() => {
     const offDelta = window.graphChat.onGenerationDelta(({ nodeId, content }) => {
@@ -380,7 +397,7 @@ function GraphChatApp() {
     setStatus('Node content cleared')
   }
 
-  async function duplicateNode(nodeId: string) {
+  async function duplicateNode(nodeId: string, options?: { position?: { x: number; y: number } }) {
     const graphNode = snapshotRef.current?.nodes.find((node) => node.id === nodeId)
     if (!graphNode) return
     const result = await window.graphChat.createNode({
@@ -392,7 +409,7 @@ function GraphChatApp() {
       model: graphNode.model,
       isGenerated: false,
       generationMeta: null,
-      position: { x: graphNode.position.x + 60, y: graphNode.position.y + 60 },
+      position: options?.position ?? { x: graphNode.position.x + 60, y: graphNode.position.y + 60 },
       size: graphNode.size
     })
     setProjects(result.projects)
@@ -511,7 +528,14 @@ function GraphChatApp() {
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v' && copiedNodeIdRef.current) {
         event.preventDefault()
-        void duplicateNode(copiedNodeIdRef.current)
+        const bounds = mainRef.current?.getBoundingClientRect()
+        const center = bounds
+          ? reactFlow.screenToFlowPosition({
+              x: bounds.left + bounds.width / 2,
+              y: bounds.top + bounds.height / 2
+            })
+          : undefined
+        void duplicateNode(copiedNodeIdRef.current, center ? { position: center } : undefined)
         return
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd' && selectedNode) {

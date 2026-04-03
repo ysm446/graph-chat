@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('graphChat', {
   selectModel: (modelPath: string) => ipcRenderer.invoke('models:select', modelPath),
   ejectModel: () => ipcRenderer.invoke('models:eject'),
   updateSettings: (input) => ipcRenderer.invoke('settings:update', input),
+  savePreferences: (input) => ipcRenderer.invoke('preferences:save', input),
   createProject: (name: string) => ipcRenderer.invoke('project:create', name),
   renameProject: (id: string, name: string) => ipcRenderer.invoke('project:rename', id, name),
   deleteProject: (id: string) => ipcRenderer.invoke('project:delete', id),
@@ -34,3 +35,4 @@ contextBridge.exposeInMainWorld('graphChat', {
     return () => ipcRenderer.off('generation:error', listener)
   }
 })
+

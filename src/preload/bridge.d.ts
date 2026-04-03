@@ -1,11 +1,12 @@
-﻿import type { AppSettings, GraphNodeRecord, ProjectRecord, ProjectSnapshot } from '../main/types'
+﻿import type { AppSettings, GraphNodeRecord, ProjectRecord, ProjectSnapshot, UiPreferences } from '../main/types'
 
 export interface GraphChatApi {
-  bootstrap(): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot; settings: AppSettings }>
+  bootstrap(): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot; settings: AppSettings; uiPreferences: UiPreferences }>
   listModels(): Promise<AppSettings>
   selectModel(modelPath: string): Promise<{ settings: AppSettings }>
   ejectModel(): Promise<{ settings: AppSettings }>
   updateSettings(input: { contextLength?: number }): Promise<{ settings: AppSettings }>
+  savePreferences(input: Partial<UiPreferences>): Promise<{ uiPreferences: UiPreferences }>
   createProject(name: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
   renameProject(id: string, name: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
   deleteProject(id: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
@@ -54,4 +55,5 @@ declare global {
     graphChat: GraphChatApi
   }
 }
+
 
