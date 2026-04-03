@@ -919,8 +919,8 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
   const node = data.graphNode
   const colors = {
     text: 'border-[var(--border-strong)] bg-[var(--bg-card)]',
-    context: 'border-[rgb(90,100,210)] bg-[rgb(37,40,66)]',
-    instruction: 'border-[rgb(156,76,196)] bg-[rgb(58,37,74)]'
+    context: 'border-[rgb(90,100,210)] bg-[rgba(37,40,66,0.8)]',
+    instruction: 'border-[rgb(156,76,196)] bg-[rgba(58,37,74,0.8)]'
   } as const
 
   return (
