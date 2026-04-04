@@ -83,7 +83,7 @@ function GraphChatApp() {
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [activeProjectId, setActiveProjectId] = useState('')
   const [settings, setSettings] = useState<AppSettings | null>(null)
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [isProjectDirty, setIsProjectDirty] = useState(false)
@@ -214,12 +214,12 @@ function GraphChatApp() {
         ...node,
         data: {
           ...node.data,
-          isSelected: node.id === selectedNodeId,
+          isSelected: selectedNodeIds.includes(node.id),
           isEditing: node.id === editingNodeId
         }
       }))
     )
-  }, [selectedNodeId, editingNodeId, setNodes])
+  }, [selectedNodeIds, editingNodeId, setNodes])
 
   useEffect(() => {
     setEdges((current) =>
@@ -233,26 +233,32 @@ function GraphChatApp() {
     )
   }, [selectedEdgeId, setEdges])
 
-  const selectedNode = useMemo(() => snapshotRef.current?.nodes.find((node) => node.id === selectedNodeId) ?? null, [selectedNodeId, nodes])
+  const selectedNode = useMemo(() => selectedNodeIds.length === 1 ? snapshotRef.current?.nodes.find((node) => node.id === selectedNodeIds[0]) ?? null : null, [selectedNodeIds, nodes])
   const nodeTypes = useMemo(() => ({ graphNode: GraphNodeCard }), [])
 
-  function selectNode(nodeId: string | null) {
-    setSelectedNodeId(nodeId)
-    if (nodeId === null) {
+  function setSelectedNodes(nodeIds: string[]) {
+    const nextIds = [...new Set(nodeIds)]
+    setSelectedNodeIds(nextIds)
+    if (nextIds.length !== 1) {
       setEditingNodeId(null)
     }
-    if (nodeId) {
+    if (nextIds.length > 0) {
       setSelectedEdgeId(null)
     }
     setNodes((current) =>
       current.map((node) => ({
         ...node,
+        selected: nextIds.includes(node.id),
         data: {
           ...node.data,
-          isSelected: node.id === nodeId
+          isSelected: nextIds.includes(node.id)
         }
       }))
     )
+  }
+
+  function selectNode(nodeId: string | null) {
+    setSelectedNodes(nodeId ? [nodeId] : [])
   }
 
   function applySnapshot(snapshot: ProjectSnapshot) {
@@ -277,7 +283,7 @@ function GraphChatApp() {
       style: { width: node.size.width, height: node.size.height },
       data: {
         graphNode: node,
-        isSelected: node.id === selectedNodeId,
+        isSelected: selectedNodeIds.includes(node.id),
         isEditing: node.id === editingNodeId,
         onSelect: selectNode,
         onChange: (updated) => {
@@ -307,7 +313,7 @@ function GraphChatApp() {
         ? selectedEdgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
         : edgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
     })))
-    setSelectedNodeId((current) => snapshot.nodes.some((node) => node.id === current) ? current : snapshot.nodes[0]?.id ?? null)
+    setSelectedNodeIds((current) => current.filter((id) => normalizedSnapshot.nodes.some((node) => node.id === id)))
     setSelectedEdgeId((current) => normalizedSnapshot.edges.some((edge) => edge.id === current) ? current : null)
   }
 
@@ -703,6 +709,25 @@ function GraphChatApp() {
 
   const handleNodeChanges: OnNodesChange<Node<AppNodeData>> = async (changes) => {
     onNodesChange(changes)
+    const selectionChanged = changes.some((change) => change.type === 'select')
+    if (selectionChanged) {
+      const selectedIds = new Set(nodes.filter((node) => node.selected).map((node) => node.id))
+      for (const change of changes) {
+        if (change.type !== 'select') continue
+        if (change.selected) {
+          selectedIds.add(change.id)
+        } else {
+          selectedIds.delete(change.id)
+        }
+      }
+      setSelectedNodeIds(Array.from(selectedIds))
+      if (selectedIds.size !== 1) {
+        setEditingNodeId(null)
+      }
+      if (selectedIds.size > 0) {
+        setSelectedEdgeId(null)
+      }
+    }
     const positionChanges = changes.filter((change) => change.type === 'position' && change.position && !change.dragging)
     for (const change of positionChanges) {
       const graphNode = snapshotRef.current?.nodes.find((node) => node.id === change.id)
@@ -722,7 +747,7 @@ function GraphChatApp() {
       if (change.type === 'select') {
         setSelectedEdgeId(change.selected ? change.id : null)
         if (change.selected) {
-          setSelectedNodeId(null)
+          setSelectedNodeIds([])
           setEditingNodeId(null)
           setStatus('Connection selected. Press Delete to remove.')
         }
@@ -778,11 +803,11 @@ function GraphChatApp() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedNode, selectedEdgeId])
+  }, [selectedNode, selectedEdgeId, selectedNodeIds, nodes])
 
   function mutateLocalNode(updated: GraphNodeRecord) {
     snapshotRef.current = snapshotRef.current ? { ...snapshotRef.current, nodes: snapshotRef.current.nodes.map((node) => node.id === updated.id ? updated : node) } : snapshotRef.current
-    setNodes((current) => current.map((node) => node.id === updated.id ? { ...node, position: updated.position, style: { width: updated.size.width, height: updated.size.height }, data: { ...node.data, graphNode: updated, isSelected: updated.id === selectedNodeId, isEditing: updated.id === editingNodeId } } : node))
+    setNodes((current) => current.map((node) => node.id === updated.id ? { ...node, position: updated.position, style: { width: updated.size.width, height: updated.size.height }, data: { ...node.data, graphNode: updated, isSelected: selectedNodeIds.includes(updated.id), isEditing: updated.id === editingNodeId } } : node))
   }
 
   function openCanvasMenu(event: React.MouseEvent) {
@@ -1094,8 +1119,8 @@ function GraphChatApp() {
           onNodesChange={handleNodeChanges}
           onEdgesChange={handleEdgeChanges}
           onConnect={(connection) => void onConnect(connection)}
-          onNodeClick={(_, node) => {
-            selectNode(node.id)
+          onNodeClick={(event, node) => {
+            setSelectedNodes(event.shiftKey ? (selectedNodeIds.includes(node.id) ? selectedNodeIds.filter((id) => id !== node.id) : [...selectedNodeIds, node.id]) : [node.id])
             setSelectedEdgeId(null)
             setCanvasMenu(null)
             setNodeMenu(null)
@@ -1127,7 +1152,7 @@ function GraphChatApp() {
       <section style={{ width: rightInspectorWidth }} className="flex shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-sidebar)]">
         <div className="border-b border-[var(--border)] px-5 py-3">
           <h2 className="text-[18px] font-semibold">{selectedNode?.title || 'Properties'}</h2>
-          <p className="mt-1 text-[12px] text-[var(--text-dim)]">{selectedNode ? defaultTitle(selectedNode.type) : 'General settings'}</p>
+          <p className="mt-1 text-[12px] text-[var(--text-dim)]">{selectedNode ? defaultTitle(selectedNode.type) : (selectedNodeIds.length > 1 ? `${selectedNodeIds.length} nodes selected` : 'General settings')}</p>
         </div>
         {selectedNode ? (
           <NodeEditor
