@@ -121,9 +121,14 @@ function GraphChatApp() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<AppNodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const snapshotRef = useRef<ProjectSnapshot | null>(null)
+  const activeProjectIdRef = useRef(activeProjectId)
+  const generationRef = useRef(generation)
   const copiedSelectionRef = useRef<CopiedSelection | null>(null)
   const hasLoadedPreferencesRef = useRef(false)
   const resizeStateRef = useRef<{ side: ResizeSide; startX: number; startWidth: number } | null>(null)
+
+  activeProjectIdRef.current = activeProjectId
+  generationRef.current = generation
 
   useEffect(() => {
     void window.graphChat.bootstrap().then(({ projects, snapshot, settings, uiPreferences }) => {
@@ -522,12 +527,12 @@ function GraphChatApp() {
 
 
   async function handleGenerate(nodeId: string) {
-    if (generation || !activeProjectId || !snapshotRef.current) return
+    if (generationRef.current || !activeProjectIdRef.current || !snapshotRef.current) return
     setError(null)
     setEditingNodeId(null)
     setStatus('Starting generation...')
     try {
-      const result = await window.graphChat.startGeneration({ projectId: activeProjectId, sourceNodeId: nodeId, snapshot: snapshotRef.current })
+      const result = await window.graphChat.startGeneration({ projectId: activeProjectIdRef.current, sourceNodeId: nodeId, snapshot: snapshotRef.current })
       setProjects(result.projects)
       applySnapshot(result.snapshot)
       setIsProjectDirty(true)
