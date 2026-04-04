@@ -496,11 +496,9 @@ function GraphChatApp() {
       if (targetNode.type !== 'text' || !targetHandle) {
         throw new Error('Connect to one of the text node input handles.')
       }
-      if (sourceNode.type !== 'text') {
-        const expectedHandle = defaultTargetHandleForNodeType(sourceNode.type)
-        if (expectedHandle !== targetHandle) {
-          throw new Error(`${displayNodeTypeLabel(sourceNode.type, sourceNode.isLocal)} nodes connect to the ${targetHandleLabel(expectedHandle)} input.`)
-        }
+      const expectedHandle = defaultTargetHandleForNodeType(sourceNode.type)
+      if (expectedHandle !== targetHandle) {
+        throw new Error(`${displayNodeTypeLabel(sourceNode.type, sourceNode.isLocal)} nodes connect to the ${targetHandleLabel(expectedHandle)} input.`)
       }
       const nextEdge: GraphEdgeRecord = {
         id: crypto.randomUUID(),
