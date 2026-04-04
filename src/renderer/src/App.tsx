@@ -1288,8 +1288,8 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
   const wasEditingRef = useRef(data.isEditing)
   const colors = {
     text: 'border-[var(--border-strong)] bg-[var(--bg-card)]',
-    context: 'border-[rgb(90,100,210)] bg-[rgba(37,40,66,0.8)]',
-    instruction: 'border-[rgb(156,76,196)] bg-[rgba(58,37,74,0.8)]'
+    context: 'border-[rgb(90,100,210)] bg-[var(--bg-card)]',
+    instruction: 'border-[rgb(156,76,196)] bg-[var(--bg-card)]'
   } as const
 
   useEffect(() => {
