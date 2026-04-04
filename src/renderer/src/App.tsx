@@ -1531,16 +1531,18 @@ function NodeEditor({
         )}
       </label>
       {(node.type === 'context' || node.type === 'instruction') && (
-        <label className="mb-4 flex items-center justify-between rounded-md border border-[var(--border-strong)] bg-[var(--bg-input)] px-4 py-3 text-sm">
-          <span className="text-[var(--text-dim)]">Local only</span>
-          <input
-            type="checkbox"
-            checked={node.isLocal}
+        <div className="mb-4">
+          <div className="mb-2 text-sm font-medium text-[var(--text-dim)]">Scope</div>
+          <select
+            value={node.isLocal ? 'local' : 'global'}
             disabled={disabled}
-            onChange={(event) => onChange({ ...node, isLocal: event.target.checked })}
-            className="h-4 w-4 accent-[var(--accent)]"
-          />
-        </label>
+            onChange={(event) => onChange({ ...node, isLocal: event.target.value === 'local' })}
+            className="w-full rounded-md border border-[var(--border-strong)] bg-[var(--bg-input)] px-4 py-3 text-sm text-[var(--text)] outline-none"
+          >
+            <option value="global">Global</option>
+            <option value="local">Local</option>
+          </select>
+        </div>
       )}
       {node.generationMeta && (
         <div className="mb-4">
