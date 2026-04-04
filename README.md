@@ -70,17 +70,111 @@ npm run build
 
 ## ノード種類
 
-- `text`: 下書きや生成結果の本文
-- `context`: 参考情報や背景情報
-- `instruction`: 生成時の指示文
+### text ノード
 
-## 生成の挙動
+生成結果や下書きの本文を保持するノードです。`Generate` を実行できるのは `text` ノードだけです。
+
+左辺に 3 種類の入力ハンドルがあります：
+
+| ハンドル | ラベル | 接続できるノード |
+|----------|--------|-----------------|
+| T        | Text   | text ノード     |
+| C        | Context | context ノード |
+| I        | Instruction | instruction ノード |
+
+右辺には 1 つの出力ハンドルがあり、下流の `text` ノードへ接続できます。
+
+### context ノード
+
+生成時の参照情報（背景知識・資料など）を保持するノードです。`text` ノードの C ハンドルへ接続します。  
+**Global / Local** の 2 つのスコープがあります（後述）。
+
+### instruction ノード
+
+生成時のシステム指示（ライティングスタイル・制約など）を保持するノードです。`text` ノードの I ハンドルへ接続します。  
+**Global / Local** の 2 つのスコープがあります（後述）。
+
+---
+
+## 上流ノードのたどり方
+
+`text` ノードで生成を実行すると、アプリは以下の順序でコンテキストを収集します。
+
+```
+生成対象 (target)
+  ├── T ハンドル: 直接の親 text ノード群 (directTextParents)
+  │     └── T ハンドル: さらに上流の text ノード群 (upstreamTexts, 再帰的)
+  ├── C ハンドル: 直接の context ノード群 (directContextParents)
+  └── I ハンドル: 直接の instruction ノード群 (directInstructionParents)
+```
+
+さらに、**upstreamTexts に含まれる各 text ノード**に対しても、そのノードに接続されている `context` / `instruction` ノードを遡って収集します。ただし、収集対象は **Global スコープのノードのみ**です（Local スコープは伝播しません）。
+
+### プロンプトの組み立て順序
+
+| 役割 | 収集元 |
+|------|--------|
+| システムプロンプト | Global instruction（直接 + 上流） → Local instruction（直接のみ） |
+| ユーザーコンテキスト | 直接の親 text → 上流 text → context（直接 + 上流 Global） → ターゲット情報 |
+
+---
+
+## Global / Local スコープ
+
+`context` ノードと `instruction` ノードには **Global**（デフォルト）と **Local** の 2 種類のスコープがあります。インスペクターパネルの「Scope」ドロップダウンで切り替えられます。
+
+### Global（デフォルト）
+
+グラフ全体を通じて伝播するスコープです。
+
+- 直接接続された `text` ノードだけでなく、その下流にある `text` ノードが生成を実行した場合も参照されます。
+- 例：`intro (text)` → `body (text)` という構成で `intro` に Global instruction を接続すると、`body` を生成するときにもその instruction が使われます。
+
+```
+[Global Instruction: "文体は丁寧に"]
+        │ I
+   [intro: text] ─── T ──▶ [body: text] ← Generate
+```
+
+`body` の生成時に `intro` の内容（upstream text）と「文体は丁寧に」（upstream global instruction）が両方参照されます。
+
+### Local
+
+直接接続した `text` ノードの生成にのみ適用されるスコープです。
+
+- 下流の `text` ノードへは**伝播しません**。
+- 「このノードだけ特別な指示で生成したい」「下流に漏らしたくない参照情報がある」といった用途に使います。
+
+```
+[Local Instruction: "箇条書きで書く"]
+        │ I
+   [draft: text] ─── T ──▶ [summary: text] ← Generate
+```
+
+`summary` の生成時に「箇条書きで書く」は参照されません。`draft` を生成するときだけ使われます。
+
+### スコープの使い分け
+
+| ユースケース | 推奨スコープ |
+|-------------|-------------|
+| プロジェクト全体の文体・トーン統一 | Global instruction |
+| 特定ノードだけの出力形式指定 | Local instruction |
+| 全体で共通の参考資料 | Global context |
+| あるノード専用の補足資料 | Local context |
+
+---
+
+## 生成の挙動まとめ
 
 - 生成対象は常に `text` ノードです。
-- 上流の `text` ノードは、本文履歴や素材として扱われます。
-- 上流の `context` ノードは、参照コンテキストとして扱われます。
-- 上流の `instruction` ノードは、システム指示として扱われます。
+- 上流の `text` ノードは T ハンドル経由で再帰的にたどられ、本文素材として使われます。
+- 上流の `context` ノード（Global）は上流 text チェーン全体から収集されます。
+- 上流の `context` ノード（Local）は直接接続された text のみに適用されます。
+- 上流の `instruction` ノード（Global）はシステムプロンプトに集約されます。
+- 上流の `instruction` ノード（Local）は直接接続された text の生成時のみシステムプロンプトに含まれます。
 - 未保存の編集内容も、`Save` 前であっても生成に反映されます。
+
+---
 
 ## 保存
 
