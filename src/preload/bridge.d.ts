@@ -10,6 +10,7 @@ export interface GraphChatApi {
   setProjectDirty(isDirty: boolean): Promise<{ ok: true }>
   createProject(name: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
   renameProject(id: string, name: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
+  duplicateProject(id: string, newName: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
   deleteProject(id: string): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>
   openProject(id: string): Promise<ProjectSnapshot>
   saveProjectSnapshot(snapshot: ProjectSnapshot): Promise<{ projects: ProjectRecord[]; snapshot: ProjectSnapshot }>

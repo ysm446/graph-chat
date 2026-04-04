@@ -202,6 +202,42 @@ export class GraphRepository {
     return this.getProjectSnapshot(snapshot.project.id)
   }
 
+  duplicateProject(id: string, newName: string): ProjectSnapshot {
+    const source = this.getProjectSnapshot(id)
+    const now = new Date().toISOString()
+    const newProjectId = randomUUID()
+    this.db.prepare('INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)').run(newProjectId, newName, now, now)
+
+    const idMap = new Map<string, string>()
+    for (const node of source.nodes) {
+      idMap.set(node.id, randomUUID())
+    }
+
+    const insertNode = this.db.prepare(
+      `INSERT INTO nodes (id, project_id, type, title, content, instruction, is_local, model, is_generated, generation_meta, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    const insertPosition = this.db.prepare('INSERT INTO node_positions (node_id, x, y, width, height) VALUES (?, ?, ?, ?, ?)')
+    const insertEdge = this.db.prepare('INSERT INTO edges (id, project_id, source_id, target_id, source_handle, target_handle) VALUES (?, ?, ?, ?, ?, ?)')
+
+    this.db.transaction(() => {
+      for (const node of source.nodes) {
+        const newId = idMap.get(node.id)!
+        insertNode.run(newId, newProjectId, node.type, node.title, node.content, node.instruction, node.isLocal ? 1 : 0, node.model, node.isGenerated ? 1 : 0, node.generationMeta ? JSON.stringify(node.generationMeta) : null, now, now)
+        insertPosition.run(newId, node.position.x, node.position.y, node.size.width, node.size.height)
+      }
+      for (const edge of source.edges) {
+        const newSourceId = idMap.get(edge.sourceId)
+        const newTargetId = idMap.get(edge.targetId)
+        if (newSourceId && newTargetId) {
+          insertEdge.run(randomUUID(), newProjectId, newSourceId, newTargetId, edge.sourceHandle, edge.targetHandle)
+        }
+      }
+    })()
+
+    return this.getProjectSnapshot(newProjectId)
+  }
+
   createNode(input: CreateNodeInput): GraphNodeRecord {
     const now = new Date().toISOString()
     const id = randomUUID()
@@ -457,11 +493,11 @@ function mapNode(row: NodeRow): GraphNodeRecord {
   return {
     id: row.id,
     projectId: row.project_id,
-    type: row.type === 'local_context' ? 'context' : row.type === 'local_instruction' ? 'instruction' : row.type,
+    type: (row.type as string) === 'local_context' ? 'context' : (row.type as string) === 'local_instruction' ? 'instruction' : row.type,
     title: row.title,
     content: row.content,
     instruction: row.instruction,
-    isLocal: row.is_local === 1 || row.type === 'local_context' || row.type === 'local_instruction',
+    isLocal: row.is_local === 1 || (row.type as string) === 'local_context' || (row.type as string) === 'local_instruction',
     model: row.model,
     isGenerated: Boolean(row.is_generated),
     generationMeta: row.generation_meta ? JSON.parse(row.generation_meta) : null,

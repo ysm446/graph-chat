@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('graphChat', {
   setProjectDirty: (isDirty: boolean) => ipcRenderer.invoke('project:setDirty', isDirty),
   createProject: (name: string) => ipcRenderer.invoke('project:create', name),
   renameProject: (id: string, name: string) => ipcRenderer.invoke('project:rename', id, name),
+  duplicateProject: (id: string, newName: string) => ipcRenderer.invoke('project:duplicate', id, newName),
   deleteProject: (id: string) => ipcRenderer.invoke('project:delete', id),
   openProject: (id: string) => ipcRenderer.invoke('project:open', id),
   saveProjectSnapshot: (snapshot) => ipcRenderer.invoke('project:saveSnapshot', snapshot),

@@ -124,6 +124,10 @@ function registerIpc(): void {
     repository.renameProject(id, name)
     return { projects: repository.listProjects(), snapshot: repository.getProjectSnapshot(id) }
   })
+  ipcMain.handle('project:duplicate', async (_event, id: string, newName: string) => {
+    const snapshot = repository.duplicateProject(id, newName)
+    return { projects: repository.listProjects(), snapshot }
+  })
   ipcMain.handle('project:delete', async (_event, id: string) => {
     repository.deleteProject(id)
     const projects = repository.listProjects()

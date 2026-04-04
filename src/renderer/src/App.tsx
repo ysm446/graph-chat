@@ -369,6 +369,12 @@ function GraphChatApp() {
     applySnapshot(result.snapshot)
   }
 
+  async function duplicateProject(project: ProjectRecord) {
+    const result = await window.graphChat.duplicateProject(project.id, `${project.name} (copy)`)
+    setProjects(result.projects)
+    setProjectMenu(null)
+  }
+
   async function deleteProject(project: ProjectRecord) {
     if (project.id !== activeProjectId && !confirm(`Delete "${project.name}"?`)) return
     if (project.id === activeProjectId) {
@@ -960,9 +966,6 @@ function GraphChatApp() {
             <IconButton onClick={() => setIsInspectorOpen((current) => !current)} label={isInspectorOpen ? 'Hide inspector' : 'Show inspector'} active={isInspectorOpen}>
               <SidebarToggleIcon className="h-[18px] w-[18px] rotate-180" />
             </IconButton>
-            {generation && (
-              <ToolbarButton onClick={() => void stopGeneration()} label="Stop" />
-            )}
           </div>
           <div className="flex max-w-full items-center gap-2">
             <ModelSelectorButton
@@ -970,6 +973,11 @@ function GraphChatApp() {
               label={settings ? (isModelLoaded ? displayModelName(settings.selectedModelName) : 'Select a model to load') : 'Select a model to load'}
               isActive={isModelSwitching || isModelLoaded}
             />
+            {generation && (
+              <IconButton onClick={() => void stopGeneration()} label="Stop generation">
+                <StopIcon className="h-3.5 w-3.5" />
+              </IconButton>
+            )}
             {settings && isModelLoaded && (
               <IconButton
                 onClick={() => void handleEjectModel()}
@@ -1045,6 +1053,7 @@ function GraphChatApp() {
                   onClick={(event) => event.stopPropagation()}
                 >
                   <MenuAction label="Rename" onClick={() => void renameProject(project)} />
+                  <MenuAction label="Duplicate" onClick={() => void duplicateProject(project)} />
                   <MenuAction label="Delete" onClick={() => void deleteProject(project)} />
                 </div>
               )}
@@ -1959,6 +1968,14 @@ function FlagIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M6 20V5" />
       <path d="M6 5h9l-1.5 3L15 11H6" />
+    </svg>
+  )
+}
+
+function StopIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <rect x="5" y="5" width="14" height="14" rx="2" />
     </svg>
   )
 }
