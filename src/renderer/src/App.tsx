@@ -970,6 +970,7 @@ function GraphChatApp() {
               onClick={() => void openModelModal()}
               label={settings ? (isModelLoaded ? displayModelName(settings.selectedModelName) : 'Select a model to load') : 'Select a model to load'}
               isActive={isModelSwitching || isModelLoaded}
+              isGenerating={generation !== null}
             />
             {generation && (
               <IconButton onClick={() => void stopGeneration()} label="Stop generation">
@@ -1835,11 +1836,13 @@ function IconButton({ onClick, label, children, active = false, disabled = false
   )
 }
 
-function ModelSelectorButton({ onClick, label, isActive = false }: { onClick: () => void; label: string; isActive?: boolean }) {
+function ModelSelectorButton({ onClick, label, isActive = false, isGenerating = false }: { onClick: () => void; label: string; isActive?: boolean; isGenerating?: boolean }) {
   return (
     <button
       className={`flex min-w-[220px] max-w-[480px] items-center gap-2 rounded-[8px] border px-3.5 py-1.5 text-[13px] font-medium transition ${
-        isActive
+        isGenerating
+          ? 'animate-pulse border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text)]'
+          : isActive
           ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text)]'
           : 'border-[var(--border-strong)] bg-white/5 text-[var(--text-dim)] hover:border-[var(--accent)] hover:bg-white/10 hover:text-[var(--text)]'
       }`}
