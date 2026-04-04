@@ -574,7 +574,7 @@ function GraphChatApp() {
     if (copiedNodes.length === 0) return null
     return {
       nodes: copiedNodes,
-      edges: snapshot.edges.filter((edge) => selectedIdSet.has(edge.sourceId) && selectedIdSet.has(edge.targetId))
+      edges: snapshot.edges.filter((edge) => selectedIdSet.has(edge.targetId))
     }
   }
 
