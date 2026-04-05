@@ -621,7 +621,7 @@ function GraphChatApp() {
   }
 
   function handleProofreadRequest(payload: { nodeId: string; text: string; selectionStart: number; selectionEnd: number; fullContent: string; rect: DOMRect }) {
-    if (!isProofreadEnabled) return
+    if (!isProofreadEnabled || !isModelLoaded) return
     if (proofreadRef.current) {
       void window.graphChat.stopProofread(proofreadRef.current.proofreadId)
     }
