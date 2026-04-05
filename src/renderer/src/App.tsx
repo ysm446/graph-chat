@@ -1317,14 +1317,7 @@ function GraphChatApp() {
               {proofread.isStreaming && <SpinnerIcon className="h-3.5 w-3.5 animate-spin text-[var(--text-faint)]" />}
             </div>
             <div className="px-4 py-3">
-              <p className="text-[11px] text-[var(--text-faint)] mb-1.5">元のテキスト</p>
-              <p className="text-[12px] text-[var(--text-dim)] line-through leading-5 whitespace-pre-wrap">{proofread.originalText}</p>
-              {proofread.correctedText && (
-                <>
-                  <p className="text-[11px] text-[var(--text-faint)] mt-3 mb-1.5">校正後</p>
-                  <p className="text-[12px] text-[var(--text)] leading-5 whitespace-pre-wrap">{proofread.correctedText}</p>
-                </>
-              )}
+              <p className="text-[12px] text-[var(--text)] leading-5 whitespace-pre-wrap">{proofread.correctedText || proofread.originalText}</p>
             </div>
             {!proofread.isStreaming && proofread.correctedText && (
               <div className="flex items-center gap-2 border-t border-[var(--border)] px-4 py-2.5">
