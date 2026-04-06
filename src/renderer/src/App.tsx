@@ -1567,9 +1567,11 @@ function GraphChatApp() {
 
 function GraphNodeCard({ data }: { data: AppNodeData }) {
   const node = data.graphNode
+  const [draftTitle, setDraftTitle] = useState(node.title)
   const [draftContent, setDraftContent] = useState(node.content)
   const [isComposing, setIsComposing] = useState(false)
   const wasEditingRef = useRef(data.isEditing)
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const proofreadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { zoom } = useViewport()
@@ -1584,13 +1586,22 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
 
   useEffect(() => {
     if (node.id !== data.graphNode.id) return
+    setDraftTitle(node.title)
     setDraftContent(node.content)
     wasEditingRef.current = data.isEditing
-  }, [node.id, node.content, data.isEditing])
+  }, [node.id, node.title, node.content, data.isEditing])
 
-  function commitDraftContent() {
-    if (draftContent !== node.content) {
-      data.onChange({ ...node, content: draftContent })
+  useEffect(() => {
+    if (data.isEditing && !wasEditingRef.current) {
+      titleInputRef.current?.focus()
+      titleInputRef.current?.select()
+    }
+    wasEditingRef.current = data.isEditing
+  }, [data.isEditing])
+
+  function commitDraft() {
+    if (draftTitle !== node.title || draftContent !== node.content) {
+      data.onChange({ ...node, title: draftTitle, content: draftContent })
     }
   }
 
@@ -1641,7 +1652,7 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
         <div className="mb-4 flex items-start gap-2">
           <div className="flex-1">
             <div className="text-xs uppercase tracking-[0.24em] text-[var(--text-dim)]">{displayNodeTypeLabel(node.type, node.isLocal)}</div>
-            <div className="font-serif text-lg font-semibold">{node.title || 'Untitled'}</div>
+            {!data.isEditing && <div className="font-serif text-lg font-semibold">{node.title || 'Untitled'}</div>}
           </div>
           <button
             className={`nodrag nopan ml-auto rounded-[10px] border px-3 py-1.5 text-sm font-medium transition ${
@@ -1655,7 +1666,7 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
             }}
             onClick={() => {
               if (data.isEditing) {
-                commitDraftContent()
+                commitDraft()
                 data.onStopEdit()
               } else {
                 data.onStartEdit(node.id)
@@ -1676,7 +1687,7 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
                 event.preventDefault()
                 event.stopPropagation()
                 if (data.isEditing) {
-                  commitDraftContent()
+                  commitDraft()
                 }
                 data.onGenerate(node.id)
               }}
@@ -1686,7 +1697,17 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
           )}
         </div>
         {data.isEditing ? (
-          <textarea
+          <div className="flex flex-1 flex-col gap-3">
+            <input
+              ref={titleInputRef}
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onBlur={commitDraft}
+              onMouseDown={(event) => event.stopPropagation()}
+              placeholder="Untitled"
+              className="nodrag nopan rounded-md border border-[var(--border-strong)] bg-[rgba(0,0,0,0.14)] px-3 py-2 text-[15px] font-semibold text-[var(--text)] outline-none"
+            />
+            <textarea
             ref={textareaRef}
             value={draftContent}
             onChange={(event) => setDraftContent(event.target.value)}
@@ -1697,7 +1718,7 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
             }}
             onBlur={() => {
               setIsComposing(false)
-              commitDraftContent()
+              commitDraft()
             }}
             onSelect={(event) => {
               const el = event.currentTarget
@@ -1713,7 +1734,8 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
             placeholder="No content yet."
             className="node-scrollbar nodrag nopan nowheel flex-1 resize-none overflow-y-auto rounded-md border border-[var(--border-strong)] bg-[rgba(0,0,0,0.14)] px-3 py-2 leading-6 text-[var(--text)] outline-none"
             style={{ fontSize: 'var(--node-font-size)' }}
-          />
+            />
+          </div>
         ) : (
           <div
             className={`node-scrollbar flex-1 overflow-y-auto whitespace-pre-wrap pr-1 leading-6 text-[var(--text)]${data.isSelected ? ' nowheel' : ''}`}
@@ -1749,7 +1771,7 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
             <button className="nodrag nopan" onClick={() => data.onOpenReader(node.id)}>Reader</button>
             <button className="nodrag nopan" onClick={() => {
               if (data.isEditing) {
-                commitDraftContent()
+                commitDraft()
                 data.onStopEdit()
               } else {
                 data.onStartEdit(node.id)

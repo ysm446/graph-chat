@@ -1,7 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { GraphRepository } from './database'
 import { LlamaServerManager } from './llamaServer'
 import type { GraphEdgeRecord, GraphNodeRecord, NodeType, ProjectSnapshot, TextInputHandle, UiPreferences } from './types'
@@ -50,7 +51,7 @@ function getLlamaServer(): LlamaServerManager {
 }
 
 function createWindow(): void {
-  const iconPath = join(app.getAppPath(), 'assets', 'icon.ico')
+  const iconPath = resolveIconPath()
   const window = new BrowserWindow({
     width: 1600,
     height: 980,
@@ -89,6 +90,16 @@ function createWindow(): void {
   } else {
     void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+function resolveIconPath(): string | undefined {
+  const candidates = [
+    join(process.cwd(), 'assets', 'icon.ico'),
+    join(resolve(app.getAppPath(), '..', '..'), 'assets', 'icon.ico'),
+    join(app.getAppPath(), 'assets', 'icon.ico')
+  ]
+
+  return candidates.find((candidate) => existsSync(candidate))
 }
 
 app.whenReady().then(() => {
