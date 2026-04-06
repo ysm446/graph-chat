@@ -80,11 +80,11 @@ type ReaderState = {
 const DEFAULT_PROOFREAD_SYSTEM_PROMPT = 'You are a proofreader. Return only the corrected text with no explanation, no markdown formatting, and no additional comments. Preserve the original language and style.'
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 288
 const DEFAULT_SETTINGS_PANEL_WIDTH = 340
-const DEFAULT_RIGHT_INSPECTOR_WIDTH = 460
+const DEFAULT_RIGHT_INSPECTOR_WIDTH = 520
 const MIN_LEFT_SIDEBAR_WIDTH = 220
 const MAX_LEFT_SIDEBAR_WIDTH = 520
 const MIN_RIGHT_INSPECTOR_WIDTH = 380
-const MAX_RIGHT_INSPECTOR_WIDTH = 680
+const MAX_RIGHT_INSPECTOR_WIDTH = 840
 const GRID_SIZE = 20
 const DEFAULT_TITLE_FONT_SIZE = 18
 const DEFAULT_CONTENT_FONT_SIZE = 14
@@ -1993,7 +1993,7 @@ function NodeEditor({
   }
 
   return (
-    <div className="inspector-scrollbar flex-1 overflow-y-auto p-5">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden p-5">
       <div className="mb-4 flex flex-wrap gap-2">
         <ToolbarButton onClick={onOpenReader} label="Open Reader" />
         {node.type === 'text' && <ToolbarButton onClick={onGenerate} label="Generate" />}
@@ -2001,14 +2001,14 @@ function NodeEditor({
         <ToolbarButton onClick={onClear} label="Clear" />
       </div>
       {isEditingDetails ? (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col">
           <label className="mb-4 block">
             <div className="mb-2 text-sm font-medium text-[var(--text-dim)]">Title</div>
             <input value={draftTitle} disabled={disabled} onChange={(event) => setDraftTitle(event.target.value)} className="w-full rounded-md border border-[var(--border-strong)] bg-[var(--bg-input)] px-4 py-3 text-sm outline-none" />
           </label>
-          <label className="mb-4 block">
+          <label className="mb-4 flex min-h-0 flex-1 flex-col">
             <div className="mb-2 text-sm font-medium text-[var(--text-dim)]">Content</div>
-            <textarea value={draftContent} disabled={disabled} onChange={(event) => setDraftContent(event.target.value)} className="h-80 w-full rounded-md border border-[var(--border-strong)] bg-[var(--bg-input)] px-4 py-3 text-sm leading-7 outline-none" />
+            <textarea value={draftContent} disabled={disabled} onChange={(event) => setDraftContent(event.target.value)} className="inspector-scrollbar min-h-[16rem] flex-1 rounded-md border border-[var(--border-strong)] bg-[var(--bg-input)] px-4 py-3 text-sm leading-7 outline-none" />
             {estimatedContentTokens !== null && (
               <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-[var(--text-faint)]">
                 <MessageIcon className="h-3.5 w-3.5" />
@@ -2034,16 +2034,16 @@ function NodeEditor({
             <ToolbarButton onClick={saveDetails} label="Save" />
             <ToolbarButton onClick={cancelDetailsEdit} label="Cancel" />
           </div>
-        </>
+        </div>
       ) : (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="mb-5 px-1">
             <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-faint)]">Title</div>
             <div className="mt-2 text-[var(--text)]" style={{ fontFamily: 'var(--node-title-font-family)', fontSize: 'var(--node-title-font-size)', fontWeight: 'var(--node-title-font-weight)', letterSpacing: 'var(--node-title-letter-spacing)' }}>{node.title || 'Untitled'}</div>
           </div>
-          <div className="mb-5 px-1">
+          <div className="mb-5 flex min-h-0 flex-1 flex-col px-1">
             <div className="mb-3 text-[11px] uppercase tracking-[0.18em] text-[var(--text-faint)]">Content</div>
-            <div className="max-h-[420px] overflow-y-auto whitespace-pre-wrap text-[var(--text)]" style={{ fontFamily: 'var(--node-content-font-family)', fontSize: 'var(--node-content-font-size)', fontWeight: 'var(--node-content-font-weight)', lineHeight: 'var(--node-content-line-height)', letterSpacing: 'var(--node-content-letter-spacing)' }}>{node.content || 'No content yet.'}</div>
+            <div className="inspector-scrollbar min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap text-[var(--text)]" style={{ fontFamily: 'var(--node-content-font-family)', fontSize: 'var(--node-content-font-size)', fontWeight: 'var(--node-content-font-weight)', lineHeight: 'var(--node-content-line-height)', letterSpacing: 'var(--node-content-letter-spacing)' }}>{node.content || 'No content yet.'}</div>
             {estimatedContentTokens !== null && (
               <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--text-faint)]">
                 <MessageIcon className="h-3.5 w-3.5" />
@@ -2057,10 +2057,10 @@ function NodeEditor({
               <div className="mt-2 text-[var(--text)]" style={{ fontFamily: 'var(--node-content-font-family)', fontSize: 'var(--node-content-font-size)', fontWeight: 'var(--node-content-font-weight)', lineHeight: 'var(--node-content-line-height)', letterSpacing: 'var(--node-content-letter-spacing)' }}>{node.isLocal ? 'Local' : 'Global'}</div>
             </div>
           )}
-        </>
+        </div>
       )}
       {node.generationMeta && (
-        <div className="mb-4">
+        <div className="mt-1 mb-4 shrink-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-dim)]">
           {node.generationMeta.tokensPerSecond !== null && <MetaItem icon={<BoltIcon className="h-3.5 w-3.5" />} label={`${node.generationMeta.tokensPerSecond.toFixed(1)} tok/sec`} />}
           {node.generationMeta.completionTokens !== null && <MetaItem icon={<MessageIcon className="h-3.5 w-3.5" />} label={`${node.generationMeta.completionTokens} tokens`} />}
@@ -2078,7 +2078,7 @@ function NodeEditor({
           )}
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-dim)]">
+      <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-dim)]">
         <div className="inline-flex items-center gap-1.5">
           <CpuIcon className="h-3.5 w-3.5" />
           <span>{node.model ? displayModelName(node.model) : (currentModelName ? displayModelName(currentModelName) : 'default')}</span>
