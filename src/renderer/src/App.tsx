@@ -1884,6 +1884,9 @@ function NodeEditor({
   const [draftTitle, setDraftTitle] = useState(node.title)
   const [draftContent, setDraftContent] = useState(node.content)
   const [draftScope, setDraftScope] = useState(node.isLocal ? 'local' : 'global')
+  const contentScrollRef = useRef<HTMLDivElement | null>(null)
+  const [showTopFade, setShowTopFade] = useState(false)
+  const [showBottomFade, setShowBottomFade] = useState(false)
 
   useEffect(() => {
     setDraftTitle(node.title)
@@ -1891,6 +1894,19 @@ function NodeEditor({
     setDraftScope(node.isLocal ? 'local' : 'global')
     setIsEditingDetails(false)
   }, [node.id, node.title, node.content, node.isLocal])
+
+  useEffect(() => {
+    if (isEditingDetails) return
+    const frame = window.requestAnimationFrame(() => {
+      const element = contentScrollRef.current
+      if (!element) return
+      const maxScrollTop = element.scrollHeight - element.clientHeight
+      setShowTopFade(element.scrollTop > 2)
+      setShowBottomFade(maxScrollTop > 2 && element.scrollTop < maxScrollTop - 2)
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [isEditingDetails, node.id, node.content])
 
   function saveDetails() {
     onChange({
@@ -1912,6 +1928,14 @@ function NodeEditor({
   function startDetailsEdit() {
     if (disabled) return
     setIsEditingDetails(true)
+  }
+
+  function updateContentFade() {
+    const element = contentScrollRef.current
+    if (!element) return
+    const maxScrollTop = element.scrollHeight - element.clientHeight
+    setShowTopFade(element.scrollTop > 2)
+    setShowBottomFade(maxScrollTop > 2 && element.scrollTop < maxScrollTop - 2)
   }
 
   return (
@@ -1969,12 +1993,18 @@ function NodeEditor({
           </div>
           <div className="mb-5 flex min-h-0 flex-1 flex-col px-1">
             <div className="mb-3 text-[11px] uppercase tracking-[0.18em] text-[var(--text-faint)]">Content</div>
-            <div
-              className={`inspector-scrollbar min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap text-[var(--text)] ${disabled ? '' : 'cursor-text'}`}
-              onDoubleClick={startDetailsEdit}
-              style={{ fontFamily: 'var(--node-content-font-family)', fontSize: 'var(--node-content-font-size)', fontWeight: 'var(--node-content-font-weight)', lineHeight: 'var(--node-content-line-height)', letterSpacing: 'var(--node-content-letter-spacing)' }}
-            >
-              {node.content || 'No content yet.'}
+            <div className="relative min-h-0 flex-1">
+              <div
+                ref={contentScrollRef}
+                className={`inspector-scrollbar min-h-0 h-full overflow-y-auto whitespace-pre-wrap pr-2 text-[var(--text)] ${disabled ? '' : 'cursor-text'}`}
+                onDoubleClick={startDetailsEdit}
+                onScroll={updateContentFade}
+                style={{ fontFamily: 'var(--node-content-font-family)', fontSize: 'var(--node-content-font-size)', fontWeight: 'var(--node-content-font-weight)', lineHeight: 'var(--node-content-line-height)', letterSpacing: 'var(--node-content-letter-spacing)' }}
+              >
+                {node.content || 'No content yet.'}
+              </div>
+              {showTopFade && <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-[var(--bg-sidebar)] to-transparent" />}
+              {showBottomFade && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[var(--bg-sidebar)] to-transparent" />}
             </div>
             {estimatedContentTokens !== null && (
               <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--text-faint)]">
