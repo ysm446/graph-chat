@@ -477,10 +477,9 @@ Write the final content for this target node.`
   return {
     systemPrompt: [...globalInstructionParts, ...localInstructionParts].join('\\n\\n') || 'You are a helpful writing assistant.',
     userContext: [
-      directParentTexts.length > 0 ? 'Use the direct parent texts below as the highest-priority source material.' : '',
-      ...directParentTexts,
-      ...upstreamTextParts,
       ...contextParts,
+      ...[...upstreamTextParts].reverse(),
+      ...directParentTexts,
       targetInfo
     ].filter(Boolean).join('\n\n') || self?.title || 'Write the final content for the target node.'
   }
