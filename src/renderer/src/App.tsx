@@ -377,6 +377,18 @@ function GraphChatApp() {
   }, [edgeType])
 
   useEffect(() => {
+    setEdges((current) =>
+      current.map((edge) => ({
+        ...edge,
+        selected: edge.id === selectedEdgeId,
+        style: edge.id === selectedEdgeId
+          ? selectedEdgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
+          : edgeStyleForHandle((edge.targetHandle as TextInputHandle | null) ?? null)
+      }))
+    )
+  }, [selectedEdgeId])
+
+  useEffect(() => {
     const offDelta = window.graphChat.onGenerationDelta(({ nodeId, content }) => {
       setLiveGenerationContent({ nodeId, content })
     })
@@ -3137,6 +3149,16 @@ function edgeStyleForHandle(handle: TextInputHandle | null) {
     return { strokeWidth: 2.6, stroke: '#a267c8', opacity: 0.84 }
   }
   return { strokeWidth: 4, stroke: '#6a728f', opacity: 0.84 }
+}
+
+function selectedEdgeStyleForHandle(handle: TextInputHandle | null) {
+  if (handle === 'context') {
+    return { strokeWidth: 3.5, stroke: '#7b89f0', opacity: 1 }
+  }
+  if (handle === 'instruction') {
+    return { strokeWidth: 3.5, stroke: '#bf79df', opacity: 1 }
+  }
+  return { strokeWidth: 4.5, stroke: '#8b95b8', opacity: 1 }
 }
 
 export default App
