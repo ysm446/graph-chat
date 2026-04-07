@@ -192,7 +192,7 @@ function getTextStyleCssVars(titlePreset: TextStylePreset, contentPreset: TextSt
 }
 
 function getNodePreview(content: string, maxChars = 260): string {
-  const normalized = content.replace(/\s+/g, ' ').trim()
+  const normalized = content.trim()
   if (normalized.length <= maxChars) return normalized
   return `${normalized.slice(0, maxChars).trimEnd()}...`
 }
