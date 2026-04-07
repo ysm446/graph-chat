@@ -261,6 +261,7 @@ function GraphChatApp() {
   const [titleFontSize, setTitleFontSize] = useState(DEFAULT_TITLE_FONT_SIZE)
   const [contentFontSize, setContentFontSize] = useState(DEFAULT_CONTENT_FONT_SIZE)
   const [modelFilter, setModelFilter] = useState('')
+  const [lastUsedModelPath, setLastUsedModelPath] = useState<string | null>(null)
   const [projectDialog, setProjectDialog] = useState<ProjectDialogState>(null)
   const [projectMenu, setProjectMenu] = useState<ProjectMenuState>(null)
   const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null)
@@ -303,6 +304,7 @@ function GraphChatApp() {
       setTitleTextStylePreset(uiPreferences.titleTextStylePreset)
       setContentTextStylePreset(uiPreferences.contentTextStylePreset)
       setTitleFontSize(uiPreferences.titleFontSize)
+      setLastUsedModelPath(uiPreferences.lastUsedModelPath ?? null)
       setContentFontSize(uiPreferences.contentFontSize)
       projectViewportsRef.current = uiPreferences.projectViewports ?? {}
       setActiveProjectId(snapshot.project.id)
@@ -771,8 +773,6 @@ function GraphChatApp() {
       setError(err instanceof Error ? err.message : String(err))
     }
   }
-
-
   async function handleGenerate(nodeId: string) {
     if (!activeProjectIdRef.current || !snapshotRef.current) return
     if (generationRef.current) {
@@ -784,6 +784,8 @@ function GraphChatApp() {
     setLiveGenerationContent(null)
     setStatus('Starting generation...')
     try {
+      const activeSettings = await ensureModelReadyForGeneration()
+      if (!activeSettings) return
       const result = await window.graphChat.startGeneration({ projectId: activeProjectIdRef.current, sourceNodeId: nodeId, snapshot: snapshotRef.current })
       setProjects(result.projects)
       applySnapshot(result.snapshot)
@@ -794,7 +796,7 @@ function GraphChatApp() {
         setGeneration({ generationId: result.generationId, nodeId: created.id })
       }
       setIsModelLoaded(true)
-      setStatus(`Generating with ${displayModelName(settings?.selectedModelName ?? 'current model')}...`)
+      setStatus(`Generating with ${displayModelName(activeSettings.selectedModelName)}...`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -1005,6 +1007,10 @@ function GraphChatApp() {
   }
 
   async function handleSelectModel(model: ModelOption) {
+    await loadModel(model, { successStatus: `Model switched to ${displayModelName(model.name)}`, closeModal: true })
+  }
+
+  async function loadModel(model: ModelOption, options?: { successStatus?: string; closeModal?: boolean }): Promise<AppSettings | null> {
     setIsModelSwitching(true)
     setError(null)
     setStatus(`Loading model ${displayModelName(model.name)}...`)
@@ -1012,13 +1018,41 @@ function GraphChatApp() {
       const result = await window.graphChat.selectModel(model.path)
       setSettings(result.settings)
       setIsModelLoaded(true)
-      setIsModelModalOpen(false)
-      setStatus(`Model switched to ${displayModelName(model.name)}`)
+      setLastUsedModelPath(model.path)
+      void window.graphChat.savePreferences({ lastUsedModelPath: model.path })
+      if (options?.closeModal) {
+        setIsModelModalOpen(false)
+      }
+      setStatus(options?.successStatus ?? `Model switched to ${displayModelName(model.name)}`)
+      return result.settings
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+      return null
     } finally {
       setIsModelSwitching(false)
     }
+  }
+
+  async function ensureModelReadyForGeneration(): Promise<AppSettings | null> {
+    if (isModelLoaded && settings) {
+      return settings
+    }
+    if (!settings) {
+      throw new Error('Model settings are not available.')
+    }
+
+    const candidatePath = lastUsedModelPath ?? settings.selectedModelPath
+    const candidateModel = settings.availableModels.find((model) => model.path === candidatePath)
+      ?? settings.availableModels.find((model) => model.name === settings.selectedModelName)
+      ?? settings.availableModels[0]
+
+    if (!candidateModel) {
+      throw new Error('No available model was found to start generation.')
+    }
+
+    return await loadModel(candidateModel, {
+      successStatus: `Loaded ${displayModelName(candidateModel.name)} for generation`
+    })
   }
 
   async function handleEjectModel() {

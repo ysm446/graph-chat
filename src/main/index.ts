@@ -40,6 +40,7 @@ const defaultUiPreferences: UiPreferences = {
     textStyle: true,
     editing: true
   },
+  lastUsedModelPath: null,
   projectViewports: {}
 }
 let uiPreferencesCache: UiPreferences = { ...defaultUiPreferences, generalSections: { ...defaultUiPreferences.generalSections }, projectViewports: {} }
@@ -635,6 +636,7 @@ function mergeUiPreferences(input: Partial<UiPreferences>): UiPreferences {
       textStyle: input.generalSections?.textStyle ?? defaultUiPreferences.generalSections.textStyle,
       editing: input.generalSections?.editing ?? defaultUiPreferences.generalSections.editing
     },
+    lastUsedModelPath: input.lastUsedModelPath ?? defaultUiPreferences.lastUsedModelPath,
     projectViewports: input.projectViewports ?? defaultUiPreferences.projectViewports
   }
 }
