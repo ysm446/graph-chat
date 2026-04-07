@@ -1444,7 +1444,7 @@ function GraphChatApp() {
           >
             {nodeMenuNode.type === 'text' && (
               <MenuAction
-                label="Generate From Here"
+                label="Generate"
                 onClick={() => {
                   void handleGenerate(nodeMenuNode.id)
                   setNodeMenu(null)
