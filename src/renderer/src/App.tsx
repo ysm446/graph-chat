@@ -2510,7 +2510,7 @@ function GeneralInspector({
           <select
             value={edgeType}
             onChange={(event) => onChangeEdgeType(event.target.value as 'default' | 'smoothstep' | 'step')}
-            className="rounded-[8px] border border-[var(--border-strong)] bg-[var(--bg-input)] px-2 py-0.5 text-[12px] text-[var(--text)] outline-none"
+            className={`rounded-[8px] border bg-[var(--bg-input)] px-2 py-1.5 text-[12px] text-[var(--text)] outline-none ${edgeType !== 'default' ? 'border-[var(--accent-border)]' : 'border-[var(--border-strong)]'}`}
           >
             <option value="default">Bezier</option>
             <option value="smoothstep">Smooth Step</option>
@@ -2530,7 +2530,7 @@ function GeneralInspector({
           <select
             value={textStyleTarget}
             onChange={(event) => onChangeTextStyleTarget(event.target.value as TextStyleTarget)}
-            className="rounded-[8px] border border-[var(--border-strong)] bg-[var(--bg-input)] px-2 py-0.5 text-[12px] text-[var(--text)] outline-none"
+            className={`rounded-[8px] border bg-[var(--bg-input)] px-2 py-1.5 text-[12px] text-[var(--text)] outline-none ${textStyleTarget !== 'both' ? 'border-[var(--accent-border)]' : 'border-[var(--border-strong)]'}`}
           >
             <option value="both">Title + Text</option>
             <option value="title">Title</option>
@@ -2542,7 +2542,7 @@ function GeneralInspector({
           <select
             value={activeTextPreset}
             onChange={(event) => onChangeTextStylePreset(event.target.value as TextStylePreset)}
-            className="rounded-[8px] border border-[var(--border-strong)] bg-[var(--bg-input)] px-2 py-0.5 text-[12px] text-[var(--text)] outline-none"
+            className={`rounded-[8px] border bg-[var(--bg-input)] px-2 py-1.5 text-[12px] text-[var(--text)] outline-none ${activeTextPreset !== 'standard' ? 'border-[var(--accent-border)]' : 'border-[var(--border-strong)]'}`}
           >
             {Object.entries(TEXT_STYLE_PRESETS).map(([value, option]) => (
               <option key={value} value={value}>{option.label}</option>
@@ -2599,7 +2599,7 @@ function GeneralInspector({
           <select
             value={proofreadPreset}
             onChange={(event) => onChangeProofreadPreset(event.target.value as ProofreadPreset)}
-            className="rounded-[8px] border border-[var(--border-strong)] bg-[var(--bg-input)] px-2 py-0.5 text-[12px] text-[var(--text)] outline-none"
+            className={`rounded-[8px] border bg-[var(--bg-input)] px-2 py-1.5 text-[12px] text-[var(--text)] outline-none ${proofreadPreset !== 'standard' ? 'border-[var(--accent-border)]' : 'border-[var(--border-strong)]'}`}
           >
             <option value="light">Light</option>
             <option value="standard">Standard</option>
