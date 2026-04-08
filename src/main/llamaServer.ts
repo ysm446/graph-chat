@@ -32,6 +32,13 @@ export class LlamaServerManager {
     }
   }
 
+  async getRuntimeSettings(): Promise<AppSettings> {
+    return {
+      ...this.getSettings(),
+      isModelLoaded: await this.isHealthy()
+    }
+  }
+
   listModels(): ModelOption[] {
     if (!existsSync(this.modelsDir)) {
       throw new Error(`Models directory was not found: ${this.modelsDir}`)
@@ -66,7 +73,7 @@ export class LlamaServerManager {
     }
     this.settings = this.buildSettings(selected, availableModels)
     await this.ensureRunning()
-    return this.getSettings()
+    return this.getRuntimeSettings()
   }
 
   async updateSettings(input: { contextLength?: number; temperature?: number }): Promise<AppSettings> {
@@ -83,19 +90,19 @@ export class LlamaServerManager {
     }
 
     this.settings = this.buildSettings(currentModel, this.listModels(), nextContextLength, nextTemperature)
-    return this.getSettings()
+    return this.getRuntimeSettings()
   }
 
   async ensureRunning(): Promise<AppSettings> {
     await this.ensureAvailablePort()
     if (await this.isHealthy()) {
-      return this.getSettings()
+      return this.getRuntimeSettings()
     }
     if (!this.process) {
       this.start()
     }
     await this.waitForHealthy()
-    return this.getSettings()
+    return this.getRuntimeSettings()
   }
 
   async stop(): Promise<void> {
@@ -135,7 +142,8 @@ export class LlamaServerManager {
       resolvedModelPath: selectedModel.path,
       resolvedMmprojPath,
       resolvedServerPath: this.serverPath,
-      supportsVision: Boolean(resolvedMmprojPath)
+      supportsVision: Boolean(resolvedMmprojPath),
+      isModelLoaded: false
     }
   }
 

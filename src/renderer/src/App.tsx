@@ -289,6 +289,7 @@ function GraphChatApp() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<AppNodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const snapshotRef = useRef<ProjectSnapshot | null>(null)
+  const persistedSnapshotRef = useRef<ProjectSnapshot | null>(null)
   const nodeTextStyleVars = useMemo(() => getTextStyleCssVars(titleTextStylePreset, contentTextStylePreset, titleFontSize, contentFontSize), [titleTextStylePreset, contentTextStylePreset, titleFontSize, contentFontSize])
   const activeProjectIdRef = useRef(activeProjectId)
   const generationRef = useRef(generation)
@@ -329,8 +330,9 @@ function GraphChatApp() {
       setLastUsedModelPath(uiPreferences.lastUsedModelPath ?? null)
       setContentFontSize(uiPreferences.contentFontSize)
       projectViewportsRef.current = uiPreferences.projectViewports ?? {}
-      setActiveProjectId(snapshot.project.id)
       applySnapshot(snapshot)
+      persistedSnapshotRef.current = snapshot
+      setIsModelLoaded(settings.isModelLoaded)
       setIsProjectDirty(false)
       hasLoadedPreferencesRef.current = true
       setStatus('Ready')
@@ -634,18 +636,20 @@ function GraphChatApp() {
   }
 
   async function switchProject(projectId: string) {
-    if (!confirmDiscardUnsavedChanges()) return
+    if (!await confirmDiscardUnsavedChanges()) return
     const snapshot = await window.graphChat.openProject(projectId)
     applySnapshot(snapshot)
+    persistedSnapshotRef.current = snapshot
     setIsProjectDirty(false)
     setStatus(`Project: ${snapshot.project.name}`)
   }
 
   async function createProject() {
-    if (!confirmDiscardUnsavedChanges()) return
+    if (!await confirmDiscardUnsavedChanges()) return
     const result = await window.graphChat.createProject('新しいプロジェクト')
     setProjects(result.projects)
     applySnapshot(result.snapshot)
+    persistedSnapshotRef.current = result.snapshot
     setIsProjectDirty(false)
     setRenamingProjectId(result.snapshot.project.id)
     setRenamingValue(result.snapshot.project.name)
@@ -663,6 +667,7 @@ function GraphChatApp() {
     const result = await window.graphChat.renameProject(projectId, trimmed)
     setProjects(result.projects)
     applySnapshot(result.snapshot)
+    persistedSnapshotRef.current = result.snapshot
   }
 
   async function duplicateProject(project: ProjectRecord) {
@@ -674,17 +679,36 @@ function GraphChatApp() {
   async function deleteProject(project: ProjectRecord) {
     if (project.id !== activeProjectId && !confirm(`Delete "${project.name}"?`)) return
     if (project.id === activeProjectId) {
-      if (!confirmDiscardUnsavedChanges()) return
+      if (!await confirmDiscardUnsavedChanges()) return
       if (!confirm(`Delete "${project.name}"?`)) return
     }
     const result = await window.graphChat.deleteProject(project.id)
     setProjects(result.projects)
     applySnapshot(result.snapshot)
+    persistedSnapshotRef.current = result.snapshot
     setIsProjectDirty(false)
   }
 
-  function confirmDiscardUnsavedChanges() {
-    return !isProjectDirty || confirm('You have unsaved changes. Discard them?')
+  async function confirmDiscardUnsavedChanges() {
+    if (!isProjectDirty) return true
+    if (!confirm('You have unsaved changes. Discard them?')) return false
+    const persistedSnapshot = persistedSnapshotRef.current
+    const activeSnapshot = snapshotRef.current
+    if (!persistedSnapshot || !activeSnapshot || persistedSnapshot.project.id !== activeSnapshot.project.id) {
+      setIsProjectDirty(false)
+      return true
+    }
+    try {
+      const result = await window.graphChat.saveProjectSnapshot(persistedSnapshot)
+      setProjects(result.projects)
+      applySnapshot(result.snapshot)
+      persistedSnapshotRef.current = result.snapshot
+      setIsProjectDirty(false)
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      return false
+    }
   }
 
   async function saveProject() {
@@ -695,6 +719,7 @@ function GraphChatApp() {
       const result = await window.graphChat.saveProjectSnapshot(snapshot)
       setProjects(result.projects)
       applySnapshot(result.snapshot)
+      persistedSnapshotRef.current = result.snapshot
       setIsProjectDirty(false)
       setStatus(`Saved ${result.snapshot.project.name}`)
     } catch (err) {
@@ -1074,6 +1099,7 @@ function GraphChatApp() {
     try {
       const latestSettings = await window.graphChat.listModels()
       setSettings(latestSettings)
+      setIsModelLoaded(latestSettings.isModelLoaded)
       setModelFilter('')
       setIsModelModalOpen(true)
     } catch (err) {
@@ -1092,7 +1118,7 @@ function GraphChatApp() {
     try {
       const result = await window.graphChat.selectModel(model.path)
       setSettings(result.settings)
-      setIsModelLoaded(true)
+      setIsModelLoaded(result.settings.isModelLoaded)
       setLastUsedModelPath(model.path)
       void window.graphChat.savePreferences({ lastUsedModelPath: model.path })
       if (options?.closeModal) {
@@ -1109,7 +1135,8 @@ function GraphChatApp() {
   }
 
   async function ensureModelReadyForGeneration(): Promise<AppSettings | null> {
-    if (isModelLoaded && settings) {
+    if (settings?.isModelLoaded) {
+      setIsModelLoaded(true)
       return settings
     }
     if (!settings) {
@@ -1138,7 +1165,7 @@ function GraphChatApp() {
     try {
       const result = await window.graphChat.ejectModel()
       setSettings(result.settings)
-      setIsModelLoaded(false)
+      setIsModelLoaded(result.settings.isModelLoaded)
       setStatus(`Unloaded ${displayModelName(result.settings.selectedModelName)}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -1155,8 +1182,8 @@ function GraphChatApp() {
     try {
       const result = await window.graphChat.updateSettings({ contextLength: normalized })
       setSettings(result.settings)
-      setIsModelLoaded(false)
-      setStatus(`Context length set to ${normalized}. Reload model to apply.`)
+      setIsModelLoaded(result.settings.isModelLoaded)
+      setStatus(result.settings.isModelLoaded ? `Context length set to ${normalized}.` : `Context length set to ${normalized}. Reload model to apply.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -1170,6 +1197,7 @@ function GraphChatApp() {
     try {
       const result = await window.graphChat.updateSettings({ temperature: normalized })
       setSettings(result.settings)
+      setIsModelLoaded(result.settings.isModelLoaded)
       setStatus(`Temperature set to ${normalized.toFixed(1)}.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -1720,7 +1748,7 @@ function GraphChatApp() {
               <NodeEditor
                 node={selectedNodeForDetails}
                 disabled={generation?.nodeId === selectedNodeForDetails.id}
-                currentModelName={settings?.selectedModelName ?? null}
+                currentModelName={isModelLoaded ? (settings?.selectedModelName ?? null) : null}
                 contextLength={settings?.contextLength ?? null}
                 onGenerate={() => void handleGenerate(selectedNodeForDetails.id)}
                 onProofreadRequest={handleProofreadRequest}
@@ -1833,13 +1861,13 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
     text: 'border-[#6b7280] bg-[var(--bg-card)]',
     context: 'border-[rgb(90,100,210)] bg-[var(--bg-card)]',
     instruction: 'border-[rgb(156,76,196)] bg-[var(--bg-card)]',
-    image: 'border-[#4d9fc3] bg-[var(--bg-card)]'
+    image: 'border-[#4a8fcb] bg-[var(--bg-card)]'
   } as const
   const outputHandleColors = {
     text: '!border-[var(--text-faint)] !bg-[var(--text)]',
     context: '!border-[rgb(111,126,255)] !bg-[rgb(111,126,255)]',
     instruction: '!border-[rgb(201,108,210)] !bg-[rgb(201,108,210)]',
-    image: '!border-[#63b4d8] !bg-[#63b4d8]' 
+    image: '!border-[#669fe0] !bg-[#669fe0]' 
   } as const
   const imagePreviewUrl = getImagePreviewUrl(node)
   const imageDimensions = formatImageDimensions(node.image?.width, node.image?.height)
@@ -1911,11 +1939,11 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
           <Handle id="text" type="target" position={Position.Left} style={{ top: '18%' }} className="!h-5 !w-5 !border-2 !border-[var(--text-faint)] !bg-[var(--text)]" />
           <Handle id="context" type="target" position={Position.Left} style={{ top: '38%' }} className="!h-5 !w-5 !border-2 !border-[rgb(111,126,255)] !bg-[rgb(111,126,255)]" />
           <Handle id="instruction" type="target" position={Position.Left} style={{ top: '58%' }} className="!h-5 !w-5 !border-2 !border-[rgb(201,108,210)] !bg-[rgb(201,108,210)]" />
-          <Handle id="image" type="target" position={Position.Left} style={{ top: '78%' }} className="!h-5 !w-5 !border-2 !border-[#63b4d8] !bg-[#63b4d8]" />
+          <Handle id="image" type="target" position={Position.Left} style={{ top: '78%' }} className="!h-5 !w-5 !border-2 !border-[#669fe0] !bg-[#669fe0]" />
           <div className="pointer-events-none absolute -left-6 top-[12%] text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--text-dim)]">T</div>
           <div className="pointer-events-none absolute -left-6 top-[32%] text-[10px] font-medium uppercase tracking-[0.2em] text-[rgb(162,170,255)]">C</div>
           <div className="pointer-events-none absolute -left-6 top-[52%] text-[10px] font-medium uppercase tracking-[0.2em] text-[rgb(221,156,221)]">I</div>
-          <div className="pointer-events-none absolute -left-8 top-[72%] text-[10px] font-medium uppercase tracking-[0.16em] text-[#8bc5dc]">Img</div>
+          <div className="pointer-events-none absolute -left-8 top-[72%] text-[10px] font-medium uppercase tracking-[0.16em] text-[#8db6e8]">Img</div>
         </>
       )}
       <Handle
@@ -2050,7 +2078,7 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
           </div>
         ) : node.type === 'image' ? (
           <div className="flex flex-1 min-h-0 flex-col gap-3">
-            <div className="min-h-0 overflow-hidden rounded-[14px] border border-[rgba(99,180,216,0.34)] bg-black/20">
+            <div className="min-h-0 overflow-hidden rounded-[14px] border border-[rgba(102,159,224,0.34)] bg-black/20">
               {getImagePreviewUrl(node) ? (
                 <img src={getImagePreviewUrl(node)!} alt={node.title || node.image?.originalName || 'Image'} className="h-full max-h-[220px] w-full object-cover" draggable={false} />
               ) : (
@@ -2382,7 +2410,7 @@ function NodeEditor({
       <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-dim)]">
         <div className="inline-flex items-center gap-1.5">
           <CpuIcon className="h-3.5 w-3.5" />
-          <span>{node.model ? displayModelName(node.model) : (currentModelName ? displayModelName(currentModelName) : 'default')}</span>
+          <span>{node.model ? displayModelName(node.model) : (currentModelName ? displayModelName(currentModelName) : 'Not loaded')}</span>
         </div>
         {node.generationMeta && (
           <div className="inline-flex items-center gap-1.5">
@@ -3180,7 +3208,7 @@ function getMiniMapNodeColor(node: Node<AppNodeData>): string {
   const type = graphNode?.type
   if (type === 'context') return graphNode?.isLocal ? '#2e4f82' : '#1e3a6b'
   if (type === 'instruction') return graphNode?.isLocal ? '#6c3d63' : '#5b2d5d'
-  if (type === 'image') return '#4d9fc3'
+  if (type === 'image') return '#4a8fcb'
   return '#3f4150'
 }
 
@@ -3312,7 +3340,7 @@ function edgeStyleForHandle(handle: NodeInputHandle | null) {
     return { strokeWidth: 2.6, stroke: '#a267c8', opacity: 0.84 }
   }
   if (handle === 'image') {
-    return { strokeWidth: 2.8, stroke: '#4d9fc3', opacity: 0.9 }
+    return { strokeWidth: 2.8, stroke: '#4a8fcb', opacity: 0.9 }
   }
   return { strokeWidth: 4, stroke: '#6a728f', opacity: 0.84 }
 }
@@ -3325,7 +3353,7 @@ function selectedEdgeStyleForHandle(handle: NodeInputHandle | null) {
     return { strokeWidth: 3.5, stroke: '#bf79df', opacity: 1 }
   }
   if (handle === 'image') {
-    return { strokeWidth: 3.8, stroke: '#74c1e3', opacity: 1 }
+    return { strokeWidth: 3.8, stroke: '#79afe8', opacity: 1 }
   }
   return { strokeWidth: 4.5, stroke: '#8b95b8', opacity: 1 }
 }

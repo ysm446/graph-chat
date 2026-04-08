@@ -88,6 +88,7 @@ export interface AppSettings {
   resolvedMmprojPath: string | null
   resolvedServerPath: string
   supportsVision: boolean
+  isModelLoaded: boolean
 }
 
 export interface UiPreferences {

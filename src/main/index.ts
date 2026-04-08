@@ -139,16 +139,16 @@ function registerIpc(): void {
     uiPreferencesCache = await loadUiPreferences()
     const settings = await llamaServer.updateSettings({ contextLength: uiPreferencesCache.contextLength, temperature: uiPreferencesCache.temperature })
     const snapshot = repository.ensureDefaultProject()
-    return { projects: repository.listProjects(), snapshot, settings, uiPreferences: uiPreferencesCache }
+    return { projects: repository.listProjects(), snapshot, settings: { ...settings, isModelLoaded: false }, uiPreferences: uiPreferencesCache }
   })
-  ipcMain.handle('models:list', async () => llamaServer.getSettings())
+  ipcMain.handle('models:list', async () => llamaServer.getRuntimeSettings())
   ipcMain.handle('models:select', async (_event, modelPath: string) => {
     const settings = await llamaServer.selectModel(modelPath)
-    return { settings }
+    return { settings: await llamaServer.getRuntimeSettings() }
   })
   ipcMain.handle('models:eject', async () => {
     await llamaServer.stop()
-    return { settings: llamaServer.getSettings() }
+    return { settings: await llamaServer.getRuntimeSettings() }
   })
   ipcMain.handle('settings:update', async (_event, input: { contextLength?: number; temperature?: number }) => {
     const settings = await llamaServer.updateSettings(input)
@@ -158,7 +158,7 @@ function registerIpc(): void {
         temperature: settings.temperature
       })
     }
-    return { settings }
+    return { settings: await llamaServer.getRuntimeSettings() }
   })
   ipcMain.handle('preferences:save', async (_event, input: Partial<UiPreferences>) => {
     const uiPreferences = await saveUiPreferences(input)
