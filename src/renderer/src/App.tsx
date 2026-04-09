@@ -1627,6 +1627,7 @@ function GraphChatApp() {
             <MenuAction
               compact
               label="Delete Node"
+              trailingIcon={<TrashIcon className="h-3.5 w-3.5" />}
               onClick={() => {
                 void removeNode(nodeMenuNode.id)
               }}
@@ -1635,26 +1636,26 @@ function GraphChatApp() {
         )}
         {isModelModalOpen && settings && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/35 p-6" onClick={() => !isModelSwitching && setIsModelModalOpen(false)}>
-            <div className="relative w-full max-w-2xl rounded-xl border border-[var(--border-strong)] bg-[var(--bg-sidebar)] p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="relative w-full max-w-xl rounded-xl border border-[var(--border-strong)] bg-[var(--bg-sidebar)] p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
               <div className="flex items-start justify-between gap-4">
                 <div />
-                <button className="rounded-[12px] border border-[var(--border-strong)] px-3 py-1 text-sm text-[var(--text)] disabled:opacity-40" onClick={() => setIsModelModalOpen(false)} disabled={isModelSwitching}>Close</button>
+                <button className="rounded-[10px] border border-[var(--border-strong)] px-2.5 py-1 text-[13px] text-[var(--text)] disabled:opacity-40" onClick={() => setIsModelModalOpen(false)} disabled={isModelSwitching}>Close</button>
               </div>
-              <div className={`mt-4 max-h-[420px] overflow-y-auto transition ${isModelSwitching ? 'pointer-events-none opacity-35 blur-[1px]' : ''}`}>
-                <div className="px-1 pb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">Your Models</div>
+              <div className={`mt-3 max-h-[360px] overflow-y-auto transition ${isModelSwitching ? 'pointer-events-none opacity-35 blur-[1px]' : ''}`}>
+                <div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">Your Models</div>
                 {filteredModels.map((model) => {
                   const isActive = isModelLoaded && model.path === settings.selectedModelPath
                   return (
                     <button
                       key={model.path}
-                      className={`block w-full rounded-[12px] border px-3 py-2.5 text-left text-[13px] transition disabled:cursor-wait disabled:opacity-70 ${isActive ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--text)]' : 'border-transparent text-[var(--text-dim)] hover:border-[var(--border-strong)] hover:bg-white/4 hover:text-[var(--text)]'}`}
+                      className={`block w-full rounded-[10px] border px-3 py-2 text-left text-[12px] transition disabled:cursor-wait disabled:opacity-70 ${isActive ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--text)]' : 'border-transparent text-[var(--text-dim)] hover:border-[var(--border-strong)] hover:bg-white/4 hover:text-[var(--text)]'}`}
                       onClick={() => void handleSelectModel(model)}
                       disabled={isModelSwitching || generation !== null}
                     >
-                      <div className="flex items-center justify-between gap-6">
-                        <div className="min-w-0 truncate font-mono text-[14px] font-semibold leading-5">{displayModelName(model.name)}</div>
-                        <div className="flex shrink-0 items-center gap-6 text-[12px] text-[var(--text-faint)]">
-                          <span className="rounded-[8px] bg-white/6 px-3 py-1 font-semibold text-[var(--text-dim)]">{extractModelParams(model.name) ?? '--'}</span>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0 truncate font-mono text-[13px] font-semibold leading-5">{displayModelName(model.name)}</div>
+                        <div className="flex shrink-0 items-center gap-4 text-[11px] text-[var(--text-faint)]">
+                          <span className="rounded-[7px] bg-white/6 px-2.5 py-0.5 font-semibold text-[var(--text-dim)]">{extractModelParams(model.name) ?? '--'}</span>
                           <span>{formatModelSize(model.sizeBytes)}</span>
                         </div>
                       </div>
@@ -1667,15 +1668,15 @@ function GraphChatApp() {
               </div>
               {isModelSwitching && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <div className="rounded-[14px] border border-[var(--border-strong)] bg-[rgba(17,19,24,0.94)] px-4 py-3 shadow-xl">
-                    <div className="inline-flex items-center gap-3 text-sm font-medium text-[var(--text)]">
+                  <div className="rounded-[12px] border border-[var(--border-strong)] bg-[rgba(17,19,24,0.94)] px-3 py-2.5 shadow-xl">
+                    <div className="inline-flex items-center gap-2.5 text-[13px] font-medium text-[var(--text)]">
                       <SpinnerIcon className="h-4 w-4 animate-spin" />
                       <span>モデルを読み込んでいます</span>
                     </div>
                   </div>
                 </div>
               )}
-              {generation && <p className="mt-4 text-[13px] text-amber-300">You cannot switch models while generation is running.</p>}
+              {generation && <p className="mt-3 text-[12px] text-amber-300">You cannot switch models while generation is running.</p>}
             </div>
           </div>
         )}
