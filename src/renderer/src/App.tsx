@@ -1494,7 +1494,7 @@ function GraphChatApp() {
       <div className="flex min-h-0 flex-1">
       {isSidebarOpen && (
       <>
-      <aside style={{ width: leftSidebarWidth }} className="flex shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)]">
+      <aside style={{ width: leftSidebarWidth }} className="relative z-20 flex shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)]">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="text-sm font-semibold tracking-[0.02em] text-[var(--text-dim)]">Projects</div>
@@ -1505,7 +1505,7 @@ function GraphChatApp() {
             </IconButton>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 py-3">
+        <div className="flex-1 overflow-y-auto overflow-x-visible px-3 py-3">
           {projects.map((project) => (
             <div key={project.id} className={`relative mb-1.5 rounded-[10px] px-3 py-3 ${project.id === activeProjectId ? 'bg-[rgba(124,90,247,0.18)] text-[var(--text)]' : 'text-[var(--text-dim)]'}`}>
               <div className="flex items-start gap-3">
@@ -1551,12 +1551,13 @@ function GraphChatApp() {
               </div>
               {projectMenu?.projectId === project.id && (
                 <div
-                  className="absolute right-3 top-12 z-30 w-36 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-card)] p-1 text-sm text-[var(--text)] shadow-2xl"
+                  className="absolute right-0 top-11 z-30 w-32 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] p-1 text-sm text-[var(--text)] shadow-2xl"
                   onClick={(event) => event.stopPropagation()}
                 >
-                  <MenuAction label="Rename" onClick={() => void renameProject(project)} />
-                  <MenuAction label="Duplicate" onClick={() => void duplicateProject(project)} />
-                  <MenuAction label="Delete" onClick={() => void deleteProject(project)} />
+                  <MenuAction compact label="Rename" onClick={() => void renameProject(project)} />
+                  <MenuAction compact label="Duplicate" onClick={() => void duplicateProject(project)} />
+                  <div className="my-1 border-t border-[var(--border)]" />
+                  <MenuAction compact label="Delete" trailingIcon={<TrashIcon className="h-3.5 w-3.5" />} onClick={() => void deleteProject(project)} />
                 </div>
               )}
             </div>
@@ -1580,24 +1581,25 @@ function GraphChatApp() {
         )}
         {canvasMenu && (
           <div
-            className="absolute z-30 w-52 rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-card)] p-2 shadow-2xl"
+            className="absolute z-30 w-40 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] p-1 shadow-2xl"
             style={{ left: canvasMenu.x, top: canvasMenu.y }}
             onClick={(event) => event.stopPropagation()}
           >
-            <MenuAction label="Add Text" onClick={() => void addNode('text', { x: canvasMenu.flowX, y: canvasMenu.flowY })} />
-            <MenuAction label="Add Context" onClick={() => void addNode('context', { x: canvasMenu.flowX, y: canvasMenu.flowY })} />
-            <MenuAction label="Add Instruction" onClick={() => void addNode('instruction', { x: canvasMenu.flowX, y: canvasMenu.flowY })} />
-            <MenuAction label="Add Image" onClick={() => void addImageNode({ x: canvasMenu.flowX, y: canvasMenu.flowY })} />
+            <MenuAction compact label="Add Text" onClick={() => void addNode('text', { x: canvasMenu.flowX, y: canvasMenu.flowY })} />
+            <MenuAction compact label="Add Context" onClick={() => void addNode('context', { x: canvasMenu.flowX, y: canvasMenu.flowY })} />
+            <MenuAction compact label="Add Instruction" onClick={() => void addNode('instruction', { x: canvasMenu.flowX, y: canvasMenu.flowY })} />
+            <MenuAction compact label="Add Image" onClick={() => void addImageNode({ x: canvasMenu.flowX, y: canvasMenu.flowY })} />
           </div>
         )}
         {nodeMenu && nodeMenuNode && (
           <div
-            className="absolute z-30 w-56 rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-card)] p-2 shadow-2xl"
+            className="absolute z-30 w-44 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] p-1 shadow-2xl"
             style={{ left: nodeMenu.x, top: nodeMenu.y }}
             onClick={(event) => event.stopPropagation()}
           >
             {nodeMenuNode.type === 'text' && (
               <MenuAction
+                compact
                 label="Generate"
                 onClick={() => {
                   void handleGenerate(nodeMenuNode.id)
@@ -1607,6 +1609,7 @@ function GraphChatApp() {
             )}
             {nodeMenuNode.type === 'text' && (
               <MenuAction
+                compact
                 label="Generate Downstream"
                 onClick={() => {
                   handleGenerateDownstream(nodeMenuNode.id)
@@ -1615,12 +1618,14 @@ function GraphChatApp() {
               />
             )}
             <MenuAction
+              compact
               label="Duplicate Node"
               onClick={() => {
                 void duplicateNode(nodeMenuNode.id)
               }}
             />
             <MenuAction
+              compact
               label="Delete Node"
               onClick={() => {
                 void removeNode(nodeMenuNode.id)
@@ -3252,8 +3257,32 @@ function TrashIcon({ className }: { className?: string }) {
   )
 }
 
-function MenuAction({ onClick, label }: { onClick: () => void; label: string }) {
-  return <button className="block w-full rounded-2xl px-4 py-3 text-left text-sm text-[var(--text)] hover:bg-white/5" onClick={onClick}>{label}</button>
+function MenuAction({
+  onClick,
+  label,
+  compact = false,
+  trailingIcon
+}: {
+  onClick: () => void
+  label: string
+  compact?: boolean
+  trailingIcon?: ReactNode
+}) {
+  return (
+    <button
+      className={`block w-full text-left text-[var(--text)] hover:bg-white/5 ${
+        compact
+          ? 'rounded-lg px-3 py-1.5 text-[13px] font-medium'
+          : 'rounded-2xl px-4 py-3 text-sm'
+      }`}
+      onClick={onClick}
+    >
+      <span className="flex items-center justify-between gap-3">
+        <span>{label}</span>
+        {trailingIcon ? <span className="shrink-0 text-[var(--text-dim)]">{trailingIcon}</span> : null}
+      </span>
+    </button>
+  )
 }
 
 function defaultTitle(type: NodeType): string {
