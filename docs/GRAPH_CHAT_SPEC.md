@@ -1,70 +1,70 @@
-# Prompt Graph Spec
+# Prompt Graph 仕様
 
-## Summary
+## 概要
 
-Prompt Graph is a desktop app for building local LLM workflows as a directed graph.
-Users compose `text`, `context`, and `instruction` nodes on a canvas, connect them, and run generation against a local `llama.cpp` OpenAI-compatible server.
+Prompt Graph は、有向グラフとしてローカル LLM ワークフローを構築するためのデスクトップアプリです。
+ユーザーはキャンバス上に `text`・`context`・`instruction` ノードを配置して接続し、ローカルの `llama.cpp` OpenAI 互換サーバーに対して生成を実行します。
 
-## Stack
+## スタック
 
 - Electron + React + TypeScript
-- React Flow for the graph UI
-- SQLite via `better-sqlite3`
-- Tailwind CSS for renderer styling
-- Local `llama.cpp` server for inference
+- React Flow（グラフ UI）
+- SQLite（`better-sqlite3` 経由）
+- Tailwind CSS（レンダラーのスタイリング）
+- ローカル `llama.cpp` サーバー（推論）
 
-## Core Model
+## コアモデル
 
-### Node types
+### ノード種別
 
-- `text`: editable text or generation target
-- `context`: reference material passed as user context
-- `instruction`: prompt guidance passed as system instruction
+- `text`：編集可能なテキスト、または生成対象
+- `context`：ユーザーコンテキストとして渡される参考資料
+- `instruction`：システム指示として渡されるプロンプトガイダンス
 
-### Project shape
+### プロジェクトの構成
 
-Each project stores:
+各プロジェクトには以下が保存されます：
 
-- project metadata
-- graph nodes
-- graph edges
-- node positions and sizes
+- プロジェクトメタデータ
+- グラフノード
+- グラフエッジ
+- ノードの位置とサイズ
 
-## Generation Flow
+## 生成フロー
 
-1. The user selects a target `text` node.
-2. The app walks upstream through connected nodes.
-3. Upstream `instruction` content is assembled into the system prompt.
-4. Upstream `text` and `context` content are assembled into the user prompt.
-5. The request is sent to the local `llama.cpp` server with streaming enabled.
-6. Streamed tokens are appended to the target node in real time.
-7. Final generation metadata is stored on the node.
+1. ユーザーが対象の `text` ノードを選択します。
+2. アプリが接続されたノードを上流方向に辿ります。
+3. 上流の `instruction` 内容がシステムプロンプトに組み立てられます。
+4. 上流の `text` および `context` 内容がユーザープロンプトに組み立てられます。
+5. ストリーミングを有効にしてローカル `llama.cpp` サーバーにリクエストを送信します。
+6. ストリームされたトークンがリアルタイムで対象ノードに追記されます。
+7. 生成完了後のメタデータがノードに保存されます。
 
-## UI Areas
+## UI エリア
 
-- Left sidebar: project list and save actions
-- Center canvas: node graph editor
-- Right inspector: selected node fields and app settings
-- Reader panel: consolidated text view for a selected node lineage
+- 左サイドバー：プロジェクト一覧と保存操作
+- 中央キャンバス：ノードグラフエディタ
+- 右インスペクター：選択ノードのフィールドとアプリ設定
+- リーダーパネル：選択ノードの系譜を統合したテキストビュー
 
-## Persistence
+## 永続化
 
-- Project data is stored in SQLite under Electron `userData`
-- UI preferences are stored in a JSON file under Electron `userData`
-- Local runtime assets such as models and `llama.cpp` binaries stay outside versioned source
+- プロジェクトデータは Electron の `userData` 以下の SQLite に保存されます。
+- UI 設定は Electron の `userData` 以下の JSON ファイルに保存されます。
+- モデルや `llama.cpp` バイナリなどのローカルランタイムアセットはバージョン管理対象外のソース外に置かれます。
 
-## Current Scope
+## 現在のスコープ
 
-- Project create, rename, delete, open, and save
-- Node create, edit, resize, duplicate, delete, and connect
-- Cycle prevention for edges
-- Streaming generation into `text` nodes
-- Reader export
-- Basic UI preferences for sidebars, minimap, snap-to-grid, temperature, and context length
+- プロジェクトの作成・リネーム・削除・オープン・保存
+- ノードの作成・編集・リサイズ・複製・削除・接続
+- エッジのサイクル防止
+- `text` ノードへのストリーミング生成
+- リーダーエクスポート
+- サイドバー・ミニマップ・スナップtoグリッド・温度・コンテキスト長の基本的な UI 設定
 
-## Non-goals
+## 非対応（Non-goals）
 
-- Cloud model providers
-- Multi-user sync
-- Remote project storage
-- Complex workflow orchestration beyond the local graph editor
+- クラウドモデルプロバイダー
+- マルチユーザー同期
+- リモートプロジェクトストレージ
+- ローカルグラフエディタを超える複雑なワークフローオーケストレーション
