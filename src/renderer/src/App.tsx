@@ -1961,6 +1961,10 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
   } as const
   const imagePreviewUrl = getImagePreviewUrl(node)
   const imageDimensions = formatImageDimensions(node.image?.width, node.image?.height)
+  const textHandleTop = '18%'
+  const contextHandleTop = '38%'
+  const instructionHandleTop = '58%'
+  const imageHandleTop = '78%'
 
   useEffect(() => {
     if (node.id !== data.graphNode.id) return
@@ -2011,10 +2015,10 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
       </NodeResizeControl>
       {node.type === 'text' && (
         <>
-          <Handle id="text" type="target" position={Position.Left} style={{ top: '18%' }} className="!h-5 !w-5 !border-2 !border-[var(--text-faint)] !bg-[var(--text)]" />
-          <Handle id="context" type="target" position={Position.Left} style={{ top: '38%' }} className="!h-5 !w-5 !border-2 !border-[rgb(111,126,255)] !bg-[rgb(111,126,255)]" />
-          <Handle id="instruction" type="target" position={Position.Left} style={{ top: '58%' }} className="!h-5 !w-5 !border-2 !border-[rgb(201,108,210)] !bg-[rgb(201,108,210)]" />
-          <Handle id="image" type="target" position={Position.Left} style={{ top: '78%' }} className="!h-5 !w-5 !border-2 !border-[#669fe0] !bg-[#669fe0]" />
+          <Handle id="text" type="target" position={Position.Left} style={{ top: textHandleTop }} className="!h-5 !w-5 !border-2 !border-[var(--text-faint)] !bg-[var(--text)]" />
+          <Handle id="context" type="target" position={Position.Left} style={{ top: contextHandleTop }} className="!h-5 !w-5 !border-2 !border-[rgb(111,126,255)] !bg-[rgb(111,126,255)]" />
+          <Handle id="instruction" type="target" position={Position.Left} style={{ top: instructionHandleTop }} className="!h-5 !w-5 !border-2 !border-[rgb(201,108,210)] !bg-[rgb(201,108,210)]" />
+          <Handle id="image" type="target" position={Position.Left} style={{ top: imageHandleTop }} className="!h-5 !w-5 !border-2 !border-[#669fe0] !bg-[#669fe0]" />
           <div className="pointer-events-none absolute -left-8 top-[12%] text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--text-dim)]">TXT</div>
           <div className="pointer-events-none absolute -left-8 top-[32%] text-[10px] font-medium uppercase tracking-[0.2em] text-[rgb(162,170,255)]">CTX</div>
           <div className="pointer-events-none absolute -left-8 top-[52%] text-[10px] font-medium uppercase tracking-[0.2em] text-[rgb(221,156,221)]">INS</div>
@@ -2025,7 +2029,7 @@ function GraphNodeCard({ data }: { data: AppNodeData }) {
         id="output"
         type="source"
         position={Position.Right}
-        style={{ top: node.type === 'image' ? '50%' : '28%' }}
+        style={{ top: node.type === 'image' ? '50%' : node.type === 'text' ? textHandleTop : '28%' }}
         className={`!h-5 !w-5 !border-2 ${outputHandleColors[node.type]}`}
       />
       <div className="flex h-full flex-col">
