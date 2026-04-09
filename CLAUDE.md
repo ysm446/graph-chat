@@ -21,10 +21,11 @@ src/
 
 ### Key types (`src/main/types.ts`)
 
-- `NodeType`: `'text' | 'context' | 'instruction'`
-  - **text**: generates output via LLM; has T/C/I input handles
+- `NodeType`: `'text' | 'context' | 'instruction' | 'image'`
+  - **text**: generates output via LLM; has T/C/I/Img input handles
   - **context**: static content fed as context
   - **instruction**: static content fed as system instruction
+  - **image**: image asset fed to the connected text node's Img handle; Vision-capable models receive the actual image data, others receive only metadata text
 - `GraphNodeRecord`: node with position, size, content, generationMeta
 - `GraphEdgeRecord`: edge connecting sourceHandle → targetHandle
 - `AppSettings`: llama-server config (model path, context length, temperature)
@@ -32,10 +33,11 @@ src/
 
 ### Node handles
 
-Text nodes have three input handles on the left:
+Text nodes have four input handles on the left:
 - **T** (text) — primary text input
 - **C** (context) — context feed
 - **I** (instruction) — system instruction
+- **Img** (image) — image input (Vision models only)
 
 All nodes have one output handle on the right.
 

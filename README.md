@@ -163,6 +163,11 @@ models/
 - `src/preload/index.ts`: preload ブリッジ
 - `src/renderer/src/App.tsx`: メイン UI
 
+## ドキュメント
+
+- [docs/GRAPH_CHAT_SPEC.md](docs/GRAPH_CHAT_SPEC.md) — アーキテクチャと仕様
+- [docs/PROMPT_CONSTRUCTION.md](docs/PROMPT_CONSTRUCTION.md) — プロンプト組み立ての詳細
+
 ## 備考
 
 - `better-sqlite3` を使っているため、Electron 向けの再ビルドが必要です
