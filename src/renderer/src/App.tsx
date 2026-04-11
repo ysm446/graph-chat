@@ -1328,6 +1328,7 @@ function GraphChatApp() {
         return
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && selectedNodeIds.length > 0) {
+        if (window.getSelection()?.toString()) return
         event.preventDefault()
         const copiedSelection = getCopiedSelection(selectedNodeIds)
         if (!copiedSelection) return
