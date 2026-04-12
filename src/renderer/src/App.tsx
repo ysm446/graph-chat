@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type SyntheticEvent } from 'react'
 import {
   Background,
-  Controls,
   Handle,
   MiniMap,
   NodeResizeControl,
@@ -1807,7 +1806,6 @@ function GraphChatApp() {
         >
           {isMiniMapVisible && <MiniMap pannable zoomable nodeColor={(node) => getMiniMapNodeColor(node as Node<AppNodeData>)} />}
           <Background gap={GRID_SIZE} size={1.4} color="#394154" />
-          <Controls showInteractive={false} />
         </ReactFlow>
       </main>
 
